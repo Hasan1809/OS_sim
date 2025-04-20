@@ -12,6 +12,7 @@ PCB* create_pcb(int pid, int priority) {
     return pcb;
 }
 
+
 void destroy_pcb(PCB* pcb) {
     free(pcb);
 }

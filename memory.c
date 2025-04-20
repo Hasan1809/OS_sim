@@ -46,10 +46,59 @@ int allocate_process(MemoryManager* mem, PCB* pcb, char** program, int program_l
     pcb->mem_start = start;
     pcb->mem_end = start + needed - 1;
     
+     // Actual PID set later
+    
     mem->words[pcb->mem_end - 5].key = "pid";
     mem->words[pcb->mem_end - 5].value = strdup("1"); // Actual PID set later
+    mem->used[pcb->mem_end - 5] = 1;
+
+    mem->words[pcb->mem_end - 4].key = "state";
+    mem->words[pcb->mem_end - 4].value = ColorStrings[pcb->state];
+    mem->used[pcb->mem_end - 4] = 1;
+
+    mem->words[pcb->mem_end - 3].key = "priority";
+    char str[20]; 
+    sprintf(str, "%d", pcb->priority);
+    mem->words[pcb->mem_end - 3].value = str;
+    mem->used[pcb->mem_end - 3] = 1;
+
+    mem->words[pcb->mem_end - 2].key = "program_counter";//object.
+    sprintf(str, "%d", pcb->program_counter);
+    mem->words[pcb->mem_end - 2].value = str;
+    mem->used[pcb->mem_end - 2] = 1;
+
+    mem->words[pcb->mem_end - 1].key = "mem_start";
+    sprintf(str, "%d", start);
+    mem->words[pcb->mem_end - 1].value =str;
+    mem->used[pcb->mem_end - 1] = 1;
+
+    mem->words[pcb->mem_end].key = "mem_end";
+    sprintf(str, "%d", start + needed - 1);
+    mem->words[pcb->mem_end].value = str;
+    mem->used[pcb->mem_end] = 1;
+
     
+
     // ... (store other PCB fields similarly)
     
     return start;
+}
+
+
+void print_memory(MemoryManager* mem) {
+    printf("Memory State:\n");
+    
+    // Loop through each memory word
+    for (int i = 0; i < MEM_SIZE; i++) {
+        // If the memory slot is in use
+        if (mem->used[i]) {
+            printf("Memory Slot %d: [USED] Key: %s, Value: %s\n", 
+                   i, 
+                   mem->words[i].key ? mem->words[i].key : "NULL", 
+                   mem->words[i].value ? mem->words[i].value : "NULL");
+        } else {
+            // If the memory slot is free
+            printf("Memory Slot %d: [FREE] Key: NULL, Value: NULL\n", i);
+        }
+    }
 }

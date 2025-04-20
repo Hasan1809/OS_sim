@@ -8,6 +8,13 @@ typedef enum {
     TERMINATED
 } ProcessState;
 
+ char* ColorStrings[] = {
+    "READY",
+    "RUNNING",
+    "BLOCKED",
+    "TERMINATED"
+};
+
 typedef struct {
     int pid;                // Process ID
     ProcessState state;     // Current state
