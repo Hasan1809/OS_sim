@@ -20,5 +20,6 @@ typedef struct {
 PCB* create_pcb(int pid, int priority);
 void destroy_pcb(PCB* pcb);
 void update_pcb_state(PCB* pcb, ProcessState new_state);
+void print_pcb(PCB* pcb);
 
 #endif
