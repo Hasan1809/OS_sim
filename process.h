@@ -1,6 +1,7 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+
 typedef enum {
     READY,
     RUNNING,
@@ -8,12 +9,7 @@ typedef enum {
     TERMINATED
 } ProcessState;
 
- char* ColorStrings[] = {
-    "READY",
-    "RUNNING",
-    "BLOCKED",
-    "TERMINATED"
-};
+
 
 typedef struct {
     int pid;                // Process ID

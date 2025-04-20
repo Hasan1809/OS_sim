@@ -10,6 +10,13 @@ void init_memory(MemoryManager* mem) {
     }
 }
 
+const char* ColorStrings[] = {
+    "READY",
+    "RUNNING",
+    "BLOCKED",
+    "TERMINATED"
+};
+
 int allocate_process(MemoryManager* mem, PCB* pcb, char** program, int program_len) {
     // Calculate needed space: program + vars + PCB fields (6 words)
     int needed = program_len + MAX_VARIABLES + 6;
@@ -53,28 +60,28 @@ int allocate_process(MemoryManager* mem, PCB* pcb, char** program, int program_l
     mem->used[pcb->mem_end - 5] = 1;
 
     mem->words[pcb->mem_end - 4].key = "state";
-    mem->words[pcb->mem_end - 4].value = ColorStrings[pcb->state];
+    mem->words[pcb->mem_end - 4].value = (char*) ColorStrings[pcb->state];
     mem->used[pcb->mem_end - 4] = 1;
 
     mem->words[pcb->mem_end - 3].key = "priority";
     char str[20]; 
-    sprintf(str, "%d", pcb->priority);
-    mem->words[pcb->mem_end - 3].value = str;
+    snprintf(str,sizeof(str), "%d", pcb->priority);
+    mem->words[pcb->mem_end - 3].value = strdup(str);
     mem->used[pcb->mem_end - 3] = 1;
 
     mem->words[pcb->mem_end - 2].key = "program_counter";//object.
     sprintf(str, "%d", pcb->program_counter);
-    mem->words[pcb->mem_end - 2].value = str;
+    mem->words[pcb->mem_end - 2].value = strdup(str);
     mem->used[pcb->mem_end - 2] = 1;
 
     mem->words[pcb->mem_end - 1].key = "mem_start";
     sprintf(str, "%d", start);
-    mem->words[pcb->mem_end - 1].value =str;
+    mem->words[pcb->mem_end - 1].value =strdup(str);
     mem->used[pcb->mem_end - 1] = 1;
 
     mem->words[pcb->mem_end].key = "mem_end";
     sprintf(str, "%d", start + needed - 1);
-    mem->words[pcb->mem_end].value = str;
+    mem->words[pcb->mem_end].value = strdup(str);
     mem->used[pcb->mem_end] = 1;
 
     
