@@ -30,7 +30,12 @@ static void set_var_value(MemoryManager* mem, PCB* pcb, const char* var_name, co
     fprintf(stderr, "Error: No variable slot found for %s\n", var_name);
 }
 
-void execute_instruction(char* instruction, PCB* pcb, MemoryManager* mem) {
+char* get_current_instruction(MemoryManager* mem, PCB* pcb){
+    return mem->words[pcb->mem_start+pcb->program_counter].value;
+}
+
+void execute_instruction (MemoryManager* mem ,PCB* pcb ){
+    char* instruction = get_current_instruction(mem,pcb);
     char cmd[20], arg1[20], arg2[20];
     sscanf(instruction, "%s %s %s", cmd, arg1, arg2);
 
@@ -61,9 +66,9 @@ void execute_instruction(char* instruction, PCB* pcb, MemoryManager* mem) {
     }
     else if (strcmp(cmd, "writeFile") == 0) {
         // Handle file writing
-        char* filename = get_var_value(mem, pcb, arg1) ?: arg1;
-        char* data = get_var_value(mem, pcb, arg2) ?: arg2;
-        FILE* file = fopen(filename, "w");
+        char* filename = arg1;
+        char* data = arg2;
+        FILE* file = fopen(filename, "r+");
         if (file) {
             fprintf(file, "%s", data);
             fclose(file);
@@ -97,4 +102,5 @@ void execute_instruction(char* instruction, PCB* pcb, MemoryManager* mem) {
     else {
         fprintf(stderr, "Unknown command: %s\n", cmd);
     }
+    increment_program_counter_mem(mem,pcb);
 }

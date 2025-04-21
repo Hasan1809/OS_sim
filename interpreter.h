@@ -4,6 +4,7 @@
 #include "process.h"
 #include "memory.h"
 
-void execute_instruction(char* instruction, PCB* pcb, MemoryManager* mem);
+void execute_instruction(MemoryManager* mem,PCB* pcb);
+char* get_current_instruction(MemoryManager* mem, PCB* pcb);
 
 #endif

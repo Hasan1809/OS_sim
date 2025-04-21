@@ -1,3 +1,4 @@
+writeFile test gsw
 semWait userInput
 assign a input
 assign b input

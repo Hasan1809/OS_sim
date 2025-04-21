@@ -19,6 +19,8 @@ typedef struct {
 // Memory functions
 void init_memory(MemoryManager* mem);
 int allocate_process(MemoryManager* mem, PCB* pcb, char** program, int program_len);
+void increment_program_counter_mem(MemoryManager* mem, PCB* pcb);
+void update_pcb_state_mem(MemoryManager* mem, PCB* pcb, ProcessState new_state);
 void free_process(MemoryManager* mem, PCB* pcb);
 void print_memory(MemoryManager* mem);
 

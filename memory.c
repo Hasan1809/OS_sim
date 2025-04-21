@@ -54,9 +54,10 @@ int allocate_process(MemoryManager* mem, PCB* pcb, char** program, int program_l
     pcb->mem_end = start + needed - 1;
     
      // Actual PID set later
-    
+    char str[20]; 
     mem->words[pcb->mem_end - 5].key = "pid";
-    mem->words[pcb->mem_end - 5].value = strdup("1"); // Actual PID set later
+    snprintf(str,sizeof(str),"%d",pcb->pid);
+    mem->words[pcb->mem_end - 5].value = strdup(str); // Actual PID set later
     mem->used[pcb->mem_end - 5] = 1;
 
     mem->words[pcb->mem_end - 4].key = "state";
@@ -64,7 +65,7 @@ int allocate_process(MemoryManager* mem, PCB* pcb, char** program, int program_l
     mem->used[pcb->mem_end - 4] = 1;
 
     mem->words[pcb->mem_end - 3].key = "priority";
-    char str[20]; 
+    
     snprintf(str,sizeof(str), "%d", pcb->priority);
     mem->words[pcb->mem_end - 3].value = strdup(str);
     mem->used[pcb->mem_end - 3] = 1;
@@ -90,6 +91,20 @@ int allocate_process(MemoryManager* mem, PCB* pcb, char** program, int program_l
     
     return start;
 }
+
+void increment_program_counter_mem(MemoryManager* mem, PCB* pcb){
+    increment_program_counter(pcb);
+    char str[20];
+    sprintf(str, "%d", pcb->program_counter);
+    mem->words[pcb->mem_end - 2].value = strdup(str);
+}
+
+void update_pcb_state_mem(MemoryManager* mem, PCB* pcb, ProcessState new_state){
+    update_pcb_state(pcb, new_state);
+    mem->words[pcb->mem_end - 4].value = (char*) ColorStrings[pcb->state];
+}
+
+
 
 
 void print_memory(MemoryManager* mem) {

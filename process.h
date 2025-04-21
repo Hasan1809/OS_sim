@@ -23,6 +23,7 @@ typedef struct {
 PCB* create_pcb(int pid, int priority);
 void destroy_pcb(PCB* pcb);
 void update_pcb_state(PCB* pcb, ProcessState new_state);
+void increment_program_counter(PCB* pcb);
 void print_pcb(PCB* pcb);
 
 #endif

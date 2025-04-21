@@ -3,7 +3,8 @@
 #include <string.h>
 #include "scheduler.h"  // Include scheduler functions
 #include "memory.h"     // Include memory functions
-#include "process.h"    // Include process functions
+#include "process.h" 
+#include "interpreter.h"   // Include process functions
 
 char** separatefunction(char* fileName, int* line_count) {
     FILE *file = fopen(fileName, "r");
@@ -39,21 +40,28 @@ char** separatefunction(char* fileName, int* line_count) {
 
 
 int main(){
+    MemoryManager mem[60];
+    init_memory(mem);
+
 
     PCB* pcb1 = create_pcb(1, 10);
+    PCB* pcb2 = create_pcb(2,12);
 
-    print_pcb(pcb1);
 
     int line_count;
     char** lines = separatefunction("Program_1.txt", &line_count);
-
-    MemoryManager mem[60];
-    init_memory(mem);
-    allocate_process(mem,pcb1,lines,line_count);
+    int line_count2;
+    char** lines2 = separatefunction("Program_2.txt", &line_count2);
+    
+    allocate_process(mem,pcb1,lines,line_count);   
+    allocate_process(mem,pcb2,lines2,line_count2);
+    
+    
+    print_memory(mem);
+    printf("%s\n", get_current_instruction(mem,pcb1));
+    execute_instruction(mem,pcb1);
     print_memory(mem);
 
-    
-    
 
        
     

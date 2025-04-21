@@ -23,6 +23,10 @@ void update_pcb_state(PCB* pcb, ProcessState new_state) {
     }
 }
 
+void increment_program_counter(PCB* pcb){
+    pcb->program_counter++;
+}
+
 void print_pcb(PCB* pcb) {
     printf("PCB Details:\n");
     printf("PID: %d\n", pcb->pid);
