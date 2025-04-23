@@ -93,7 +93,7 @@ void execute_instruction (MemoryManager* mem ,PCB* pcb ){
     else if (strcmp(cmd, "semWait") == 0) {
         // Handle mutex acquisition (stub - integrate with your mutex system)
         printf("Process %d: Waiting for %s\n", pcb->pid, arg1);
-        pcb->state = BLOCKED;
+        update_pcb_state_mem(mem, pcb , BLOCKED);
     }
     else if (strcmp(cmd, "semSignal") == 0) {
         // Handle mutex release (stub)
