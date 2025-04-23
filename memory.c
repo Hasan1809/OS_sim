@@ -71,6 +71,7 @@ int allocate_process(MemoryManager* mem, PCB* pcb, char** program, int program_l
     mem->used[pcb->mem_end - 3] = 1;
 
     mem->words[pcb->mem_end - 2].key = "program_counter";//object.
+    pcb->program_counter = start;
     sprintf(str, "%d", pcb->program_counter);
     mem->words[pcb->mem_end - 2].value = strdup(str);
     mem->used[pcb->mem_end - 2] = 1;

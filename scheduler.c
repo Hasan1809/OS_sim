@@ -39,3 +39,10 @@ void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
         printf("Process ID %d completed.\n", current_process->pid);
     }
 }
+
+
+void round_robin(MemoryManager* mem , Queue* ready_queue, int rr){
+    int temp = rr;
+
+    while(temp !=0 || )
+}

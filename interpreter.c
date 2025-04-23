@@ -31,7 +31,7 @@ static void set_var_value(MemoryManager* mem, PCB* pcb, const char* var_name, co
 }
 
 char* get_current_instruction(MemoryManager* mem, PCB* pcb){
-    return mem->words[pcb->mem_start+pcb->program_counter].value;
+    return mem->words[pcb->program_counter].value;
 }
 
 void execute_instruction (MemoryManager* mem ,PCB* pcb ){
