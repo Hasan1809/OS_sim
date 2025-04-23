@@ -5,6 +5,8 @@
 #include "memory.h"     // Include memory functions
 #include "process.h" 
 #include "interpreter.h"   // Include process functions
+#include "scheduler.h"
+
 
 char** separatefunction(char* fileName, int* line_count) {
     FILE *file = fopen(fileName, "r");
@@ -39,7 +41,12 @@ char** separatefunction(char* fileName, int* line_count) {
 }
 
 
+
 int main(){
+
+    Queue ready_queue;
+    init_queue(&ready_queue);
+
     MemoryManager mem[60];
     init_memory(mem);
 
@@ -60,6 +67,11 @@ int main(){
     print_memory(mem);
     printf("%s\n", get_current_instruction(mem,pcb1));
     execute_instruction(mem,pcb1);
+
+    enqueue(&ready_queue, pcb1);
+    enqueue(&ready_queue, pcb2);
+
+    fifo_scheduler(mem, &ready_queue);
     print_memory(mem);
 
 

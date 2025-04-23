@@ -2,17 +2,19 @@
 #define SCHEDULER_H
 
 #include "process.h"
+#include "memory.h"
 
-#define MAX_PROCESSES 10
 
-typedef struct {
-    PCB* ready_queue[MAX_PROCESSES];
-    int count;
-} Scheduler;
+typedef struct Queue {
+    PCB* processes[100];
+    int front;
+    int rear;
+} Queue;
 
-// Scheduler functions
-void init_scheduler(Scheduler* sched);
-void add_process(Scheduler* sched, PCB* pcb);
-PCB* get_next_process(Scheduler* sched);
+void init_queue(Queue* q);
+void enqueue(Queue* q, PCB* process);
+PCB* dequeue(Queue* q);
+int is_empty(Queue* q);
+void fifo_scheduler(MemoryManager* memory, Queue* ready_queue);
 
 #endif
