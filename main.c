@@ -65,13 +65,12 @@ int main(){
     
     
     print_memory(mem);
-    printf("%s\n", get_current_instruction(mem,pcb1));
-    execute_instruction(mem,pcb1);
 
     enqueue(&ready_queue, pcb1);
     enqueue(&ready_queue, pcb2);
 
-    fifo_scheduler(mem, &ready_queue);
+    //fifo_scheduler(mem, &ready_queue);
+    round_robin(mem,&ready_queue,2);
     print_memory(mem);
 
 

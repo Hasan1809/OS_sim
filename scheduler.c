@@ -43,6 +43,18 @@ void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
 
 void round_robin(MemoryManager* mem , Queue* ready_queue, int rr){
     int temp = rr;
-
-    while(temp !=0 || )
+    while(!is_empty(ready_queue)){
+        PCB* current_process = dequeue(ready_queue);
+        printf("Executing Process ID: %d\n", current_process->pid);
+        while(temp !=0 && (current_process->program_counter < (current_process->mem_end) - 8)){
+            execute_instruction(mem, current_process);
+            temp --;
+        }
+        if(current_process->program_counter < (current_process->mem_end) - 8){
+            enqueue(ready_queue, current_process);
+        }else{
+            printf("Process ID %d completed.\n", current_process->pid);
+        }
+        temp = rr;
+    }
 }

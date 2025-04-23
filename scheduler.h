@@ -16,5 +16,6 @@ void enqueue(Queue* q, PCB* process);
 PCB* dequeue(Queue* q);
 int is_empty(Queue* q);
 void fifo_scheduler(MemoryManager* memory, Queue* ready_queue);
+void round_robin(MemoryManager* mem , Queue* ready_queue, int rr);
 
 #endif
