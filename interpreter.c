@@ -1,8 +1,10 @@
 #include "interpreter.h"
 #include "memory.h"
+#include "scheduler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 
 // Helper: Get variable value from memory
 static char* get_var_value(MemoryManager* mem, PCB* pcb, const char* var_name) {
@@ -103,4 +105,5 @@ void execute_instruction (MemoryManager* mem ,PCB* pcb ){
         fprintf(stderr, "Unknown command: %s\n", cmd);
     }
     increment_program_counter_mem(mem,pcb);
+    clock ++;
 }

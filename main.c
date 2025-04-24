@@ -5,7 +5,8 @@
 #include "memory.h"     // Include memory functions
 #include "process.h" 
 #include "interpreter.h"   // Include process functions
-#include "scheduler.h"
+#include "queue.h"
+
 
 
 char** separatefunction(char* fileName, int* line_count) {
@@ -41,7 +42,6 @@ char** separatefunction(char* fileName, int* line_count) {
 }
 
 
-
 int main(){
 
     Queue ready_queue;
@@ -50,9 +50,11 @@ int main(){
     MemoryManager mem[60];
     init_memory(mem);
 
-
-    PCB* pcb1 = create_pcb(1, 10);
-    PCB* pcb2 = create_pcb(2,12);
+    arrival1 = 0;
+    arrival2 = 5;
+    
+    pcb1 = create_pcb(1, 10);
+    pcb2 = create_pcb(2,12);
 
 
     int line_count;
@@ -66,11 +68,12 @@ int main(){
     
     print_memory(mem);
 
-    enqueue(&ready_queue, pcb1);
-    enqueue(&ready_queue, pcb2);
+    while(programs>0){
+        fifo_scheduler(mem, &ready_queue);
+    }
 
     //fifo_scheduler(mem, &ready_queue);
-    round_robin(mem,&ready_queue,2);
+    //round_robin(mem,&ready_queue,2);
     print_memory(mem);
 
 

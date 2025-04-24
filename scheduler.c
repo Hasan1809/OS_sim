@@ -4,42 +4,50 @@
 #include "process.h"
 #include "memory.h"
 #include "interpreter.h"
+#include "queue.h"
 
 
-void init_queue(Queue* q) {
-    q->front = 0;
-    q->rear = 0;
-}
 
-void enqueue(Queue* q, PCB* process) {
-    q->processes[q->rear++] = process;
-}
 
-PCB* dequeue(Queue* q) {
-    if (q->front == q->rear) {
-        return NULL;
+// void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
+//     while (!is_empty(ready_queue)) {
+//         PCB* current_process = dequeue(ready_queue);
+//         printf("Executing Process ID: %d\n", current_process->pid);
+
+//         while (current_process->program_counter < (current_process->mem_end) - 8) {
+//             execute_instruction(memory, current_process);
+//             //print_memory(memory);
+//         }
+
+//         printf("Process ID %d completed.\n", current_process->pid);
+//     }
+// }
+
+void fifo_scheduler(MemoryManager* memory, Queue* ready_queue){
+    if(clock == arrival1){
+        printf("pcb1 has arrived");
+        enqueue(ready_queue, pcb1);
     }
-    return q->processes[q->front++];
-}
-
-int is_empty(Queue* q) {
-    return q->front == q->rear;
-}
-
-void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
-    while (!is_empty(ready_queue)) {
-        PCB* current_process = dequeue(ready_queue);
+    if(clock == arrival2){
+        printf("pcb2 has arrived");
+        enqueue(ready_queue, pcb2);
+    }
+    if(is_empty(ready_queue) && programs > 0){
+        clock ++;
+        return;
+    }
+    PCB* current_process = peek(ready_queue);
+    if(current_process->program_counter < (current_process->mem_end)-8){
+        execute_instruction(memory,current_process);
         printf("Executing Process ID: %d\n", current_process->pid);
-
-        while (current_process->program_counter < (current_process->mem_end) - 8) {
-            execute_instruction(memory, current_process);
-            //print_memory(memory);
-        }
-
+    }else{
+        programs --;
         printf("Process ID %d completed.\n", current_process->pid);
+        dequeue(ready_queue);
+        current_process = peek(ready_queue);
+        execute_instruction(memory,current_process);
     }
 }
-
 
 void round_robin(MemoryManager* mem , Queue* ready_queue, int rr){
     int temp = rr;

@@ -3,23 +3,22 @@
 #define QUEUE_H
 
 #include <stdbool.h>
+#include "process.h"
 
 #define MAX_SIZE 100
 
-// Defining the Queue structure
-typedef struct {
-    int items[MAX_SIZE];
+
+
+typedef struct Queue {
+    PCB* processes[100];
     int front;
     int rear;
 } Queue;
 
-// Function declarations
-void initializeQueue(Queue* q);
-bool isEmpty(Queue* q);
-bool isFull(Queue* q);
-void enqueue(Queue* q, int value);
-void dequeue(Queue* q);
-int peek(Queue* q);
-void printQueue(Queue* q);
+void init_queue(Queue* q);
+void enqueue(Queue* q, PCB* process);
+PCB* dequeue(Queue* q);
+PCB* peek(Queue* q);
+int is_empty(Queue* q);
 
 #endif // QUEUE_H

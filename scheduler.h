@@ -3,18 +3,22 @@
 
 #include "process.h"
 #include "memory.h"
+#include "queue.h"
+
+extern int arrival1;
+extern int arrival2;
+extern PCB* pcb1;
+extern PCB* pcb2;
+extern int clock;
+extern int programs;
 
 
-typedef struct Queue {
-    PCB* processes[100];
-    int front;
-    int rear;
-} Queue;
 
-void init_queue(Queue* q);
-void enqueue(Queue* q, PCB* process);
-PCB* dequeue(Queue* q);
-int is_empty(Queue* q);
+
+
+clock = 0;
+programs = 2;
+
 void fifo_scheduler(MemoryManager* memory, Queue* ready_queue);
 void round_robin(MemoryManager* mem , Queue* ready_queue, int rr);
 
