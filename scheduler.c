@@ -84,12 +84,7 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
         clock++;
         return;
     }
-    if(!is_empty(ready_queue)){
-        while(peek(ready_queue)->state==BLOCKED){
-            dequeue(ready_queue);
-            printf("process blocked");
-        }
-    }
+    
 
     if(current_quanta == 0){
         current_quanta = quanta;

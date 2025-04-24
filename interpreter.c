@@ -82,8 +82,8 @@ void execute_instruction (MemoryManager* mem ,PCB* pcb ){
     }
     else if (strcmp(cmd, "writeFile") == 0) {
         // Handle file writing
-        char* filename = arg1;
-        char* data = arg2;
+        char* filename = get_var_value(mem, pcb, arg1) ?: arg1;
+        char* data = get_var_value(mem, pcb, arg2) ?: arg2;
         FILE* file = fopen(filename, "r+");
         if (file) {
             fprintf(file, "%s", data);

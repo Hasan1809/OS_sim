@@ -14,6 +14,9 @@ void semWait(MemoryManager* mem,Mutex* m, PCB* pcb) {
     } else {
         // Block the process
         update_pcb_state_mem(mem,pcb,BLOCKED);
+        print_queue(&ready_queue);
+        dequeue(&ready_queue);
+        print_queue(&ready_queue);
         enqueue(&m->waitingQ, pcb); // or process pointer if you adjust the queue
         // Also add to global blocked queue if you have one
     }
@@ -31,5 +34,6 @@ void semSignal(MemoryManager* mem,Mutex *m) {
 
         // Push into the appropriate ready queue
         enqueue(&ready_queue, pcb);
+        print_queue(&ready_queue);
     }
 }

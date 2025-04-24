@@ -100,12 +100,16 @@ int main(){
     //     multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
     // }
 
+    // while(programs>0){
+    //     round_robin(mem,&ready_queue);
+    // }
+
     while(programs>0){
-        round_robin(mem,&ready_queue);
+        fifo_scheduler(mem, &ready_queue);
     }
 
     //fifo_scheduler(mem, &ready_queue);
-    //round_robin(mem,&ready_queue,2);
+
     print_memory(mem);
 
 

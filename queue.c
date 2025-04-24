@@ -32,4 +32,16 @@ int is_empty(Queue* q) {
     return q->front == q->rear;
 }
 
+void print_queue(Queue* q) {
+    if (is_empty(q)) {
+        printf("Queue is empty.\n");
+        return;
+    }
 
+    printf("Queue contents:\n");
+    for (int i = q->front; i < q->rear; i++) {
+        PCB* process = q->processes[i];
+        printf("Process ID: %d, State: %d, Priority: %d, Program Counter: %d\n",
+               process->pid, process->state, process->priority, process->program_counter);
+    }
+}
