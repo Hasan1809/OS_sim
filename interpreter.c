@@ -38,8 +38,8 @@ char* get_current_instruction(MemoryManager* mem, PCB* pcb){
 
 void execute_instruction (MemoryManager* mem ,PCB* pcb ){
     char* instruction = get_current_instruction(mem,pcb);
-    char cmd[20], arg1[20], arg2[20];
-    sscanf(instruction, "%s %s %s", cmd, arg1, arg2);
+    char cmd[20], arg1[20], arg2[20], arg3[20];
+    sscanf(instruction, "%s %s %s %s", cmd, arg1, arg2, arg3);
 
     if (strcmp(cmd, "print") == 0) {
         // Handle print command (requires userOutput mutex)
@@ -54,7 +54,21 @@ void execute_instruction (MemoryManager* mem ,PCB* pcb ){
             fgets(input, sizeof(input), stdin);
             input[strcspn(input, "\n")] = '\0'; // Remove newline
             set_var_value(mem, pcb, arg1, input);
-        } else {
+        }else if(strcmp(arg2,"readFile")==0){
+            printf("%s",arg2);
+            char* filename = get_var_value(mem, pcb, arg3) ?: arg1;
+            FILE* file = fopen(filename, "r");
+            if (file) {
+                char buffer[100];
+                fgets(buffer, sizeof(buffer), file);
+                fclose(file);
+                set_var_value(mem, pcb, arg1, buffer);
+            } else {
+                fprintf(stderr, "Error reading file %s\n", filename);
+                set_var_value(mem, pcb, "file_content", "FILE_NOT_FOUND");
+            }
+        }
+        else {
             set_var_value(mem, pcb, arg1, arg2);
         }
     }
@@ -78,27 +92,25 @@ void execute_instruction (MemoryManager* mem ,PCB* pcb ){
             fprintf(stderr, "Error writing to file %s\n", filename);
         }
     }
-    else if (strcmp(cmd, "readFile") == 0) {
-        // Handle file reading
-        char* filename = get_var_value(mem, pcb, arg1) ?: arg1;
-        FILE* file = fopen(filename, "r");
-        if (file) {
-            char buffer[100];
-            fgets(buffer, sizeof(buffer), file);
-            fclose(file);
-            set_var_value(mem, pcb, "file_content", buffer);
-        } else {
-            fprintf(stderr, "Error reading file %s\n", filename);
-            set_var_value(mem, pcb, "file_content", "FILE_NOT_FOUND");
-        }
-    }
     else if (strcmp(cmd, "semWait") == 0) {
-        // Handle mutex acquisition (stub - integrate with your mutex system)
+        if(strcmp(arg1,"userInput")==0){
+            semWait(mem,&input,pcb);
+        }else if(strcmp(cmd,"file")==0){
+            semWait(mem,&file,pcb);
+        }else if(strcmp(arg1,"userOutput")==0){
+            semWait(mem,&output,pcb);
+        }
         printf("Process %d: Waiting for %s\n", pcb->pid, arg1);
-        update_pcb_state_mem(mem, pcb , BLOCKED);
     }
     else if (strcmp(cmd, "semSignal") == 0) {
         // Handle mutex release (stub)
+        if(strcmp(arg1,"userInput")==0){
+            semSignal(mem,&input);
+        }else if(strcmp(cmd,"file")==0){
+            semSignal(mem,&file);
+        }else if(strcmp(arg1,"userOutput")==0){
+            semSignal(mem,&output);
+        }
         printf("Process %d: Releasing %s\n", pcb->pid, arg1);
     }
     else {

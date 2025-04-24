@@ -17,6 +17,7 @@ extern Queue lvl1;
 extern Queue lvl2;
 extern Queue lvl3;
 extern Queue lvl4;
+extern Queue ready_queue;
 
 void fifo_scheduler(MemoryManager* memory, Queue* ready_queue);
 void round_robin(MemoryManager* mem , Queue* ready_queue);

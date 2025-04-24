@@ -73,6 +73,9 @@ const int quanta = 2;
 int current_quanta = quanta;
 
 void round_robin(MemoryManager* mem , Queue* ready_queue){
+    while(peek(ready_queue)->state==BLOCKED){
+        dequeue(ready_queue);
+    }
     if(clock == arrival1){
         enqueue(ready_queue,pcb1);
     }if(clock == arrival2){

@@ -6,6 +6,7 @@
 #include "process.h" 
 #include "interpreter.h"   // Include process functions
 #include "queue.h"
+#include "mutex.h"
 
 
 
@@ -53,15 +54,21 @@ Queue lvl1;
 Queue lvl2;
 Queue lvl3;
 Queue lvl4;
+Queue ready_queue;
+Mutex file;
+Mutex input;
+Mutex output;
 
 int main(){
 
-    Queue ready_queue;
     init_queue(&ready_queue);
     init_queue(&lvl1);
     init_queue(&lvl2);
     init_queue(&lvl3);
     init_queue(&lvl4);
+    initMutex(&file);
+    initMutex(&input);
+    initMutex(&output);
 
     MemoryManager mem[60];
     init_memory(mem);
