@@ -73,9 +73,7 @@ const int quanta = 2;
 int current_quanta = quanta;
 
 void round_robin(MemoryManager* mem , Queue* ready_queue){
-    while(peek(ready_queue)->state==BLOCKED){
-        dequeue(ready_queue);
-    }
+    
     if(clock == arrival1){
         enqueue(ready_queue,pcb1);
     }if(clock == arrival2){
@@ -85,6 +83,12 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
     if(is_empty(ready_queue)){
         clock++;
         return;
+    }
+    if(!is_empty(ready_queue)){
+        while(peek(ready_queue)->state==BLOCKED){
+            dequeue(ready_queue);
+            printf("process blocked");
+        }
     }
 
     if(current_quanta == 0){
@@ -96,8 +100,8 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
     PCB* current_process = peek(ready_queue);
 
     if(current_process->program_counter < current_process->mem_end - 8){
-        execute_instruction(mem,current_process); // executing
         printf("Executing Process ID: %d\n", current_process->pid);
+        execute_instruction(mem,current_process); // executing
         current_quanta--;
     }else{ //if its over
         programs--;
@@ -108,10 +112,11 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
             return;
         } 
         current_process = peek(ready_queue);
+
         current_quanta = quanta;
         current_quanta--;
-        execute_instruction(mem,current_process);
         printf("Executing Process ID: %d\n", current_process->pid);
+        execute_instruction(mem,current_process);
     }
 }
 
