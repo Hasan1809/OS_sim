@@ -168,6 +168,7 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
             enqueue(current_level, current_process); // Re-enqueue in the same level (Round Robin)
         }}
     } else {
+        dequeue(current_level);
         cur_quantum[quantum_index] = quantum[quantum_index];
         printf("Process ID %d completed.\n", current_process->pid);
         programs--; // Decrease the count of active programs
