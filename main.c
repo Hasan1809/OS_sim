@@ -75,7 +75,7 @@ int main(){
     print_memory(mem);
 
     while(programs>0){
-        fifo_scheduler(mem, &ready_queue);
+        round_robin(mem, &ready_queue);
     }
 
     //fifo_scheduler(mem, &ready_queue);
