@@ -43,39 +43,54 @@ char** separatefunction(char* fileName, int* line_count) {
 
 int arrival1;
 int arrival2;
+int arrival3;
 PCB* pcb1;
 PCB* pcb2;
+PCB* pcb3;
 int clock = 0;
-int programs = 2;
+int programs = 3;
+Queue lvl1;
+Queue lvl2;
+Queue lvl3;
+Queue lvl4;
 
 int main(){
 
     Queue ready_queue;
     init_queue(&ready_queue);
+    init_queue(&lvl1);
+    init_queue(&lvl2);
+    init_queue(&lvl3);
+    init_queue(&lvl4);
 
     MemoryManager mem[60];
     init_memory(mem);
 
     arrival1 = 0;
     arrival2 = 1;
+    arrival3 = 3;
     
     pcb1 = create_pcb(1, 10);
     pcb2 = create_pcb(2,12);
+    pcb3 = create_pcb(3,14);
 
 
     int line_count;
     char** lines = separatefunction("Program_1.txt", &line_count);
     int line_count2;
     char** lines2 = separatefunction("Program_2.txt", &line_count2);
+    int line_count3;
+    char** lines3 = separatefunction("Program_3.txt", &line_count3);
     
     allocate_process(mem,pcb1,lines,line_count);   
     allocate_process(mem,pcb2,lines2,line_count2);
-    
+    allocate_process(mem,pcb3,lines3,line_count3);
+
     
     print_memory(mem);
 
     while(programs>0){
-        round_robin(mem, &ready_queue);
+        multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
     }
 
     //fifo_scheduler(mem, &ready_queue);
