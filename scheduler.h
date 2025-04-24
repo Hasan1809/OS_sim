@@ -12,13 +12,6 @@ extern PCB* pcb2;
 extern int clock;
 extern int programs;
 
-
-
-
-
-clock = 0;
-programs = 2;
-
 void fifo_scheduler(MemoryManager* memory, Queue* ready_queue);
 void round_robin(MemoryManager* mem , Queue* ready_queue, int rr);
 

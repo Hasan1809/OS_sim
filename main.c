@@ -41,6 +41,12 @@ char** separatefunction(char* fileName, int* line_count) {
     return lines;
 }
 
+int arrival1;
+int arrival2;
+PCB* pcb1;
+PCB* pcb2;
+int clock = 0;
+int programs = 2;
 
 int main(){
 
@@ -51,7 +57,7 @@ int main(){
     init_memory(mem);
 
     arrival1 = 0;
-    arrival2 = 5;
+    arrival2 = 1;
     
     pcb1 = create_pcb(1, 10);
     pcb2 = create_pcb(2,12);
