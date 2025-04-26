@@ -75,7 +75,7 @@ int main(){
 
     arrival1 = 0;
     arrival2 = 0;
-    arrival3 = 0;
+    arrival3 = 9;
     
     pcb1 = create_pcb(1, 10);
     pcb2 = create_pcb(2,12);
@@ -96,17 +96,17 @@ int main(){
     
     print_memory(mem);
 
-    // while(programs>0){
-    //     multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
-    // }
+    while(programs>0){
+        multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
+    }
 
     // while(programs>0){
     //     round_robin(mem,&ready_queue);
     // }
 
-    while(programs>0){
-        fifo_scheduler(mem, &ready_queue);
-    }
+    // while(programs>0){
+    //     fifo_scheduler(mem, &ready_queue);
+    // }
 
     //fifo_scheduler(mem, &ready_queue);
 
