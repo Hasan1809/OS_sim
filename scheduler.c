@@ -184,8 +184,6 @@ void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2,
             current_queue = NULL; // No queue active
             clock++; // Advance clock if no processes are ready
         }
-    }else{
-        clock ++;
     }
 }
 
@@ -194,6 +192,12 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
     printf("Executing Process ID: %d at Level with Quantum %d\n", current_process->pid, quantum[quantum_index]);
 
     execute_instruction(mem, current_process);
+    if(current_process->state==BLOCKED){
+        dequeue(current_level);
+        current_queue = NULL;
+        cur_quantum[quantum_index] = quantum[quantum_index];
+        return;
+    }
     cur_quantum[quantum_index]--;
     
     // Check if the process has completed execution
@@ -216,6 +220,7 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
         printf("Process ID %d completed.\n", current_process->pid);
         programs--;
         new_arrival = false;
+        current_queue = NULL;
     }
-    
+    print_queue(&lvl1);
 }

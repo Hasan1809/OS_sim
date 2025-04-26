@@ -105,11 +105,11 @@ void execute_instruction (MemoryManager* mem ,PCB* pcb ){
     else if (strcmp(cmd, "semSignal") == 0) {
         // Handle mutex release (stub)
         if(strcmp(arg1,"userInput")==0){
-            semSignal(mem,&input);
+            semSignal(mem,&input,pcb);
         }else if(strcmp(cmd,"file")==0){
-            semSignal(mem,&file);
+            semSignal(mem,&file,pcb);
         }else if(strcmp(arg1,"userOutput")==0){
-            semSignal(mem,&output);
+            semSignal(mem,&output,pcb);
         }
         printf("Process %d: Releasing %s\n", pcb->pid, arg1);
     }

@@ -1,6 +1,9 @@
+semWait userInput
 assign a input
-assign b input
-assign c input
-writeFile a b
-readFile a
-print c
+semSignal userInput
+semWait file
+assign b readFile a
+semSignal file
+semWait userOutput
+print b
+semSignal userOutput

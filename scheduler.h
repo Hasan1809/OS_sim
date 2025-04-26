@@ -5,6 +5,12 @@
 #include "memory.h"
 #include "queue.h"
 
+typedef enum{
+    FCFS,
+    RR,
+    MLFQ
+}selected_schedule;
+
 extern int arrival1;
 extern int arrival2;
 extern int arrival3;
@@ -18,6 +24,8 @@ extern Queue lvl2;
 extern Queue lvl3;
 extern Queue lvl4;
 extern Queue ready_queue;
+extern selected_schedule schedule;
+extern bool new_arrival;
 
 void fifo_scheduler(MemoryManager* memory, Queue* ready_queue);
 void round_robin(MemoryManager* mem , Queue* ready_queue);

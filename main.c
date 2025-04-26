@@ -58,6 +58,7 @@ Queue ready_queue;
 Mutex file;
 Mutex input;
 Mutex output;
+selected_schedule schedule;
 
 int main(){
 
@@ -69,6 +70,8 @@ int main(){
     initMutex(&file);
     initMutex(&input);
     initMutex(&output);
+
+    schedule = MLFQ;
 
     MemoryManager mem[60];
     init_memory(mem);
