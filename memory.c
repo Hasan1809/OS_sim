@@ -125,3 +125,7 @@ void print_memory(MemoryManager* mem) {
         }
     }
 }
+
+char* state_to_string(PCB* pcb){
+    return (char*) ColorStrings[pcb->state];
+}

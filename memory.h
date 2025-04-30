@@ -23,5 +23,6 @@ void increment_program_counter_mem(MemoryManager* mem, PCB* pcb);
 void update_pcb_state_mem(MemoryManager* mem, PCB* pcb, ProcessState new_state);
 void free_process(MemoryManager* mem, PCB* pcb);
 void print_memory(MemoryManager* mem);
+char* state_to_string(PCB* pcb);
 
 #endif
