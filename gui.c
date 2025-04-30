@@ -113,6 +113,7 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app);
 void on_step_clicked(GtkButton *button, AppWidgets *app);
 gboolean update_simulation(gpointer data);
 void update_gui(AppWidgets *app);
+void update_memory_view(AppWidgets *app);
 
 // Initialize the GUI
 AppWidgets* init_gui() {
@@ -246,8 +247,12 @@ AppWidgets* init_gui() {
 
     // Memory Viewer
     GtkWidget *memory_frame = gtk_frame_new("Memory Viewer");
+    GtkWidget *memory_scroll = gtk_scrolled_window_new(NULL, NULL);
     app->memory_view_label = gtk_label_new("Memory: [Empty]");
-    gtk_container_add(GTK_CONTAINER(memory_frame), app->memory_view_label);
+    gtk_label_set_justify(GTK_LABEL(app->memory_view_label), GTK_JUSTIFY_LEFT);
+    gtk_label_set_selectable(GTK_LABEL(app->memory_view_label), TRUE);
+    gtk_container_add(GTK_CONTAINER(memory_scroll), app->memory_view_label);
+    gtk_container_add(GTK_CONTAINER(memory_frame), memory_scroll);
     gtk_box_pack_start(GTK_BOX(right_box), memory_frame, TRUE, TRUE, 5);
 
     // Log & Console Panel
@@ -262,6 +267,33 @@ AppWidgets* init_gui() {
     return app;
 }
 
+// Update Memory Viewer label
+void update_memory_view(AppWidgets *app) {
+    char buffer[4096] = "Memory:\n"; // Large buffer for 60 lines
+    int pos = strlen(buffer);
+    int any_used = 0;
+
+    for (int i = 0; i < MEM_SIZE; i++) {
+        if (mem[0].used[i]) {
+            any_used = 1;
+            pos += snprintf(buffer + pos, sizeof(buffer) - pos,
+                           "Slot %d: [USED] Key: %s, Value: %s\n",
+                           i,
+                           mem[0].words[i].key ? mem[0].words[i].key : "NULL",
+                           mem[0].words[i].value ? mem[0].words[i].value : "NULL");
+        } else {
+            pos += snprintf(buffer + pos, sizeof(buffer) - pos,
+                           "Slot %d: [FREE] Key: NULL, Value: NULL\n", i);
+        }
+    }
+
+    if (!any_used) {
+        snprintf(buffer, sizeof(buffer), "Memory: [Empty]");
+    }
+
+    gtk_label_set_text(GTK_LABEL(app->memory_view_label), buffer);
+}
+
 // Callback for Add Program 1
 void on_add_program1_clicked(GtkButton *button, AppWidgets *app) {
     const char *arrival_time_str = gtk_entry_get_text(GTK_ENTRY(app->arrival_entry));
@@ -272,13 +304,21 @@ void on_add_program1_clicked(GtkButton *button, AppWidgets *app) {
         int line_count;
         char** lines = separatefunction("Program_1.txt", &line_count);
         if (lines) {
-            allocate_process(mem, pcb1, lines, line_count);
+            if (allocate_process(mem, pcb1, lines, line_count) == -1) {
+                gtk_text_buffer_insert_at_cursor(
+                    gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+                    "Error: Not enough memory for Program_1\n", -1);
+                free_lines(lines, line_count);
+                free(pcb1);
+                pcb1 = NULL;
+                return;
+            }
             free_lines(lines, line_count);
         } else {
             gtk_text_buffer_insert_at_cursor(
                 gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
                 "Error: Failed to load Program_1.txt\n", -1);
-            free(pcb1); // Assuming free_pcb is not defined; using standard free
+            free(pcb1);
             pcb1 = NULL;
             return;
         }
@@ -302,6 +342,8 @@ void on_add_program1_clicked(GtkButton *button, AppWidgets *app) {
             log, -1);
         // Disable the Add Program 1 button
         gtk_widget_set_sensitive(app->add_program1_button, FALSE);
+        // Update Memory Viewer
+        update_memory_view(app);
     } else {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -319,13 +361,21 @@ void on_add_program2_clicked(GtkButton *button, AppWidgets *app) {
         int line_count;
         char** lines = separatefunction("Program_2.txt", &line_count);
         if (lines) {
-            allocate_process(mem, pcb2, lines, line_count);
+            if (allocate_process(mem, pcb2, lines, line_count) == -1) {
+                gtk_text_buffer_insert_at_cursor(
+                    gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+                    "Error: Not enough memory for Program_2\n", -1);
+                free_lines(lines, line_count);
+                free(pcb2);
+                pcb2 = NULL;
+                return;
+            }
             free_lines(lines, line_count);
         } else {
             gtk_text_buffer_insert_at_cursor(
                 gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
                 "Error: Failed to load Program_2.txt\n", -1);
-            free(pcb2); // Assuming free_pcb is not defined; using standard free
+            free(pcb2);
             pcb2 = NULL;
             return;
         }
@@ -349,6 +399,8 @@ void on_add_program2_clicked(GtkButton *button, AppWidgets *app) {
             log, -1);
         // Disable the Add Program 2 button
         gtk_widget_set_sensitive(app->add_program2_button, FALSE);
+        // Update Memory Viewer
+        update_memory_view(app);
     } else {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -366,13 +418,21 @@ void on_add_program3_clicked(GtkButton *button, AppWidgets *app) {
         int line_count;
         char** lines = separatefunction("Program_3.txt", &line_count);
         if (lines) {
-            allocate_process(mem, pcb3, lines, line_count);
+            if (allocate_process(mem, pcb3, lines, line_count) == -1) {
+                gtk_text_buffer_insert_at_cursor(
+                    gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+                    "Error: Not enough memory for Program_3\n", -1);
+                free_lines(lines, line_count);
+                free(pcb3);
+                pcb3 = NULL;
+                return;
+            }
             free_lines(lines, line_count);
         } else {
             gtk_text_buffer_insert_at_cursor(
                 gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
                 "Error: Failed to load Program_3.txt\n", -1);
-            free(pcb3); // Assuming free_pcb is not defined; using standard free
+            free(pcb3);
             pcb3 = NULL;
             return;
         }
@@ -396,6 +456,8 @@ void on_add_program3_clicked(GtkButton *button, AppWidgets *app) {
             log, -1);
         // Disable the Add Program 3 button
         gtk_widget_set_sensitive(app->add_program3_button, FALSE);
+        // Update Memory Viewer
+        update_memory_view(app);
     } else {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -427,15 +489,15 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
     app->running = FALSE;
     app->clock_cycle = 0;
     if (pcb1) {
-        free(pcb1); // Assuming free_pcb is not defined; using standard free
+        free_process(mem, pcb1);
         pcb1 = NULL;
     }
     if (pcb2) {
-        free(pcb2);
+        free_process(mem, pcb2);
         pcb2 = NULL;
     }
     if (pcb3) {
-        free(pcb3);
+        free_process(mem, pcb3);
         pcb3 = NULL;
     }
     arrival1 = 0;
@@ -448,7 +510,8 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
     gtk_label_set_text(GTK_LABEL(app->running_process_label), "Running: None");
     gtk_label_set_text(GTK_LABEL(app->mutex_status_label), "Mutex: userInput: Free, userOutput: Free, file: Free");
     gtk_label_set_text(GTK_LABEL(app->blocked_resource_label), "Blocked for Resources: []");
-    gtk_label_set_text(GTK_LABEL(app->memory_view_label), "Memory: [Empty]");
+    // Update Memory Viewer
+    update_memory_view(app);
     GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view));
     gtk_text_buffer_set_text(buffer, "Simulation reset\n", -1);
     // Re-enable all program buttons

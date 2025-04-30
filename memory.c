@@ -105,7 +105,10 @@ void update_pcb_state_mem(MemoryManager* mem, PCB* pcb, ProcessState new_state){
     mem->words[pcb->mem_end - 4].value = (char*) ColorStrings[pcb->state];
 }
 
-
+void free_process(MemoryManager *mem, PCB *pcb)
+{
+    init_memory(mem);
+}
 
 
 void print_memory(MemoryManager* mem) {
