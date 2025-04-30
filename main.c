@@ -48,7 +48,7 @@ int arrival3;
 PCB* pcb1;
 PCB* pcb2;
 PCB* pcb3;
-int clock = 0;
+int os_clock = 0;
 int programs = 3;
 Queue lvl1;
 Queue lvl2;

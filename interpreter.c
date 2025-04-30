@@ -117,5 +117,5 @@ void execute_instruction (MemoryManager* mem ,PCB* pcb ){
         fprintf(stderr, "Unknown command: %s\n", cmd);
     }
     increment_program_counter_mem(mem,pcb);
-    clock ++;
+    os_clock ++;
 }

@@ -34,15 +34,15 @@ static PCB* check_blocked(){
 }
 
 static void arrivals(){
-    if (clock == arrival1) {
+    if (os_clock == arrival1) {
         printf("pcb1 has arrived\n");
         enqueue(&ready_queue, pcb1);
     }
-    if (clock == arrival2) {
+    if (os_clock == arrival2) {
         printf("pcb2 has arrived\n");
         enqueue(&ready_queue, pcb2);
     }
-    if (clock == arrival3) {
+    if (os_clock == arrival3) {
         printf("pcb2 has arrived\n");
         enqueue(&ready_queue, pcb3);
     }
@@ -50,12 +50,12 @@ static void arrivals(){
 
 void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
     // Check for process arrivals
-    printf("Clock: %d\n", clock);
+    printf("os_clock: %d\n", os_clock);
 
     arrivals();
-    // If no processes are ready, advance the clock
+    // If no processes are ready, advance the os_clock
     if (is_empty(ready_queue)) {
-        clock++;
+        os_clock++;
         return;
     }  
     
@@ -63,7 +63,7 @@ void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
     PCB* current_process = peek(ready_queue);
 
     if (current_process == NULL){
-        clock ++;
+        os_clock ++;
         return;
     }
 
@@ -87,14 +87,14 @@ int current_quanta = quanta;
 
 void round_robin(MemoryManager* mem , Queue* ready_queue){
     
-    printf("Clock: %d\n", clock);
+    printf("os_clock: %d\n", os_clock);
 
 
     arrivals();
     
     
     if(is_empty(ready_queue)){
-        clock++;
+        os_clock++;
         return;
     }
     
@@ -111,7 +111,7 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
         current_quanta = quanta;
         current_process = check_blocked();
         if (current_process ==NULL){
-            clock ++;
+            os_clock ++;
             return;
         }
     }
@@ -137,17 +137,17 @@ Queue* next_queue = NULL;
 
 void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2, Queue* level3, Queue* level4) {
     // Check for process arrivals first
-    if (clock == arrival1) {
+    if (os_clock == arrival1) {
         printf("Process ID %d has arrived.\n", pcb1->pid);
         enqueue(level1, pcb1);
         new_arrival = true;
     }
-    if (clock == arrival2) {
+    if (os_clock == arrival2) {
         printf("Process ID %d has arrived.\n", pcb2->pid);
         enqueue(level1, pcb2);
         new_arrival = true;
     }
-    if (clock == arrival3) {
+    if (os_clock == arrival3) {
         printf("Process ID %d has arrived.\n", pcb3->pid);
         enqueue(level1, pcb3);
         new_arrival = true;
@@ -182,7 +182,7 @@ void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2,
             execute_level(mem, level4, level4, 3);
         } else {
             current_queue = NULL; // No queue active
-            clock++; // Advance clock if no processes are ready
+            os_clock++; // Advance os_clock if no processes are ready
         }
     }
 }
