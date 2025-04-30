@@ -5,10 +5,13 @@
 #include "process.h"
 #include "interpreter.h"
 #include "memory.h"
+#include "mutex.h"
+#include "queue.h"
+#include "scheduler.h"
 
-int arrival1;
-int arrival2;
-int arrival3;
+int arrival1 = 0;
+int arrival2 = 0;
+int arrival3 = 0;
 PCB* pcb1 = NULL;
 PCB* pcb2 = NULL;
 PCB* pcb3 = NULL;
@@ -93,7 +96,9 @@ typedef struct {
     GtkWidget *blocked_resource_label;
     GtkWidget *memory_view_label;
     GtkWidget *log_text_view;
-    GtkWidget *add_program1_button; // Added to store button for enabling/disabling
+    GtkWidget *add_program1_button;
+    GtkWidget *add_program2_button;
+    GtkWidget *add_program3_button;
     int clock_cycle;
     gboolean running;
 } AppWidgets;
@@ -171,14 +176,14 @@ AppWidgets* init_gui() {
 
     // Three buttons for adding programs
     app->add_program1_button = gtk_button_new_with_label("Add Program 1");
-    GtkWidget *add_program2_button = gtk_button_new_with_label("Add Program 2");
-    GtkWidget *add_program3_button = gtk_button_new_with_label("Add Program 3");
+    app->add_program2_button = gtk_button_new_with_label("Add Program 2");
+    app->add_program3_button = gtk_button_new_with_label("Add Program 3");
     g_signal_connect(app->add_program1_button, "clicked", G_CALLBACK(on_add_program1_clicked), app);
-    g_signal_connect(add_program2_button, "clicked", G_CALLBACK(on_add_program2_clicked), app);
-    g_signal_connect(add_program3_button, "clicked", G_CALLBACK(on_add_program3_clicked), app);
+    g_signal_connect(app->add_program2_button, "clicked", G_CALLBACK(on_add_program2_clicked), app);
+    g_signal_connect(app->add_program3_button, "clicked", G_CALLBACK(on_add_program3_clicked), app);
     gtk_box_pack_start(GTK_BOX(creation_box), app->add_program1_button, FALSE, FALSE, 5);
-    gtk_box_pack_start(GTK_BOX(creation_box), add_program2_button, FALSE, FALSE, 5);
-    gtk_box_pack_start(GTK_BOX(creation_box), add_program3_button, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(creation_box), app->add_program2_button, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(creation_box), app->add_program3_button, FALSE, FALSE, 5);
 
     GtkWidget *arrival_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *arrival_label = gtk_label_new("Arrival Time:");
@@ -342,6 +347,8 @@ void on_add_program2_clicked(GtkButton *button, AppWidgets *app) {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
             log, -1);
+        // Disable the Add Program 2 button
+        gtk_widget_set_sensitive(app->add_program2_button, FALSE);
     } else {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -351,9 +358,49 @@ void on_add_program2_clicked(GtkButton *button, AppWidgets *app) {
 
 // Callback for Add Program 3
 void on_add_program3_clicked(GtkButton *button, AppWidgets *app) {
-    gtk_text_buffer_insert_at_cursor(
-        gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-        "Program3 not implemented\n", -1);
+    const char *arrival_time_str = gtk_entry_get_text(GTK_ENTRY(app->arrival_entry));
+    int arrival_time = atoi(arrival_time_str);
+    if (pcb3 == NULL) {
+        pcb3 = create_pcb(3, arrival_time);
+        arrival3 = arrival_time;
+        int line_count;
+        char** lines = separatefunction("Program_3.txt", &line_count);
+        if (lines) {
+            allocate_process(mem, pcb3, lines, line_count);
+            free_lines(lines, line_count);
+        } else {
+            gtk_text_buffer_insert_at_cursor(
+                gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+                "Error: Failed to load Program_3.txt\n", -1);
+            free(pcb3); // Assuming free_pcb is not defined; using standard free
+            pcb3 = NULL;
+            return;
+        }
+        char pid_str[16];
+        snprintf(pid_str, sizeof(pid_str), "P%d", pcb3->pid);
+        char range_str[50];
+        snprintf(range_str, sizeof(range_str), "%d-%d", pcb3->mem_start, pcb3->mem_end);
+        GtkTreeIter iter;
+        gtk_list_store_append(app->process_store, &iter);
+        gtk_list_store_set(app->process_store, &iter,
+                           0, pid_str,
+                           1, state_to_string(pcb3),
+                           2, pcb3->priority,
+                           3, range_str,
+                           4, pcb3->program_counter,
+                           -1);
+        char log[256];
+        snprintf(log, sizeof(log), "Added Program3 as process P%d with arrival time %d\n", pcb3->pid, arrival_time);
+        gtk_text_buffer_insert_at_cursor(
+            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+            log, -1);
+        // Disable the Add Program 3 button
+        gtk_widget_set_sensitive(app->add_program3_button, FALSE);
+    } else {
+        gtk_text_buffer_insert_at_cursor(
+            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+            "Program3 already added\n", -1);
+    }
 }
 
 // Callback for Start
@@ -404,8 +451,10 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
     gtk_label_set_text(GTK_LABEL(app->memory_view_label), "Memory: [Empty]");
     GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view));
     gtk_text_buffer_set_text(buffer, "Simulation reset\n", -1);
-    // Re-enable the Add Program 1 button
+    // Re-enable all program buttons
     gtk_widget_set_sensitive(app->add_program1_button, TRUE);
+    gtk_widget_set_sensitive(app->add_program2_button, TRUE);
+    gtk_widget_set_sensitive(app->add_program3_button, TRUE);
 }
 
 // Callback for Step
