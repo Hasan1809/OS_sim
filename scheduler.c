@@ -62,6 +62,10 @@ void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
 
     PCB* current_process = peek(ready_queue);
 
+    if(current_process->state != RUNNING){
+        update_pcb_state_mem(memory,current_process,RUNNING);
+    }
+
     if (current_process == NULL){
         os_clock ++;
         return;
@@ -77,6 +81,7 @@ void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
         if(current_process->program_counter >= current_process->mem_end - 8){
             programs--;
             printf("Process ID %d completed.\n", current_process->pid);
+            update_pcb_state_mem(memory,current_process,TERMINATED);
             dequeue(ready_queue);
         }
     } 
@@ -102,10 +107,14 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
     if(current_quanta == 0){
         current_quanta = quanta;
         PCB* temp = dequeue(ready_queue);
+        if(temp->state != BLOCKED){
+            update_pcb_state_mem(mem,temp,READY);
+        }
         enqueue(ready_queue,temp);
     }
 
     PCB* current_process = peek(ready_queue);
+    
 
     if(current_process->state == BLOCKED){
         current_quanta = quanta;
@@ -116,13 +125,19 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
         }
     }
 
+    
+    
+    
+
     if(current_process->program_counter < current_process->mem_end - 8){
         printf("Executing Process ID: %d\n", current_process->pid);
+        update_pcb_state_mem(mem,current_process,RUNNING);
         execute_instruction(mem,current_process); // executing
         current_quanta--;
         if(current_process->program_counter >= current_process->mem_end - 8){
             current_quanta = quanta;
             programs--;
+            update_pcb_state_mem(mem,current_process,TERMINATED);
             printf("Process ID %d completed.\n", current_process->pid);
             dequeue(ready_queue);
         }
@@ -190,7 +205,9 @@ void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2,
 void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, int quantum_index) {
     PCB* current_process = peek(current_level);
     printf("Executing Process ID: %d at Level with Quantum %d\n", current_process->pid, quantum[quantum_index]);
-
+    if (current_process->state != RUNNING){
+        update_pcb_state_mem(mem, current_process, RUNNING);
+    }
     execute_instruction(mem, current_process);
     if(current_process->state==BLOCKED){
         dequeue(current_level);
@@ -205,6 +222,7 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
         if(cur_quantum[quantum_index] == 0) {
             current_queue = NULL;
             cur_quantum[quantum_index] = quantum[quantum_index];
+            update_pcb_state_mem(mem, current_process, READY);
             dequeue(current_level);
             if (current_level != next_level) {
                 printf("Process ID %d moved to the next level.\n", current_process->pid);
@@ -217,6 +235,7 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
     } else {
         dequeue(current_level);
         cur_quantum[quantum_index] = quantum[quantum_index];
+        update_pcb_state_mem(mem, current_process, TERMINATED);
         printf("Process ID %d completed.\n", current_process->pid);
         programs--;
         new_arrival = false;

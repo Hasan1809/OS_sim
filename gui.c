@@ -15,6 +15,7 @@ int arrival3 = 0;
 PCB* pcb1 = NULL;
 PCB* pcb2 = NULL;
 PCB* pcb3 = NULL;
+PCB* running = NULL;
 int os_clock = 0;
 int programs = 3;
 Queue lvl1;
@@ -310,7 +311,7 @@ void update_ready_queue_label(AppWidgets *app) {
     } else {
         int first = 1;
         for (int i = ready_queue.front; i < ready_queue.rear && i < MAX_SIZE; i++) {
-            if (ready_queue.processes[i] == NULL) continue; // Skip null entries
+            if (ready_queue.processes[i] == NULL || ready_queue.processes[i]->state != READY) continue; // Skip null entries
             if (!first) {
                 pos += snprintf(buffer + pos, sizeof(buffer) - pos, ", ");
             }

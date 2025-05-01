@@ -48,6 +48,7 @@ int arrival3;
 PCB* pcb1;
 PCB* pcb2;
 PCB* pcb3;
+PCB* running = NULL;
 int os_clock = 0;
 int programs = 3;
 Queue lvl1;
@@ -71,7 +72,7 @@ int main(){
     initMutex(&input);
     initMutex(&output);
 
-    schedule = MLFQ;
+    schedule = FCFS;
 
     MemoryManager mem[60];
     init_memory(mem);
@@ -99,17 +100,17 @@ int main(){
     
     print_memory(mem);
 
-    while(programs>0){
-        multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
-    }
+    // while(programs>0){
+    //     multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
+    // }
 
     // while(programs>0){
     //     round_robin(mem,&ready_queue);
     // }
 
-    // while(programs>0){
-    //     fifo_scheduler(mem, &ready_queue);
-    // }
+    while(programs>0){
+        fifo_scheduler(mem, &ready_queue);
+    }
 
     //fifo_scheduler(mem, &ready_queue);
 
