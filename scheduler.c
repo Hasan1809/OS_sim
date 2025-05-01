@@ -9,20 +9,6 @@
 
 
 
-// void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
-//     while (!is_empty(ready_queue)) {
-//         PCB* current_process = dequeue(ready_queue);
-//         printf("Executing Process ID: %d\n", current_process->pid);
-
-//         while (current_process->program_counter < (current_process->mem_end) - 8) {
-//             execute_instruction(memory, current_process);
-//             //print_memory(memory);
-//         }
-
-//         printf("Process ID %d completed.\n", current_process->pid);
-//     }
-// }
-
 static PCB* check_blocked(){
     while(peek(&ready_queue)->state == BLOCKED){
         dequeue(&ready_queue);
@@ -87,8 +73,10 @@ void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
     } 
 }
 
-const int quanta = 2;
-int current_quanta = quanta;
+
+void init_quanta(){
+    current_quanta = quanta;
+}
 
 void round_robin(MemoryManager* mem , Queue* ready_queue){
     

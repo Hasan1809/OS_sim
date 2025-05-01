@@ -59,8 +59,13 @@ Mutex file;
 Mutex input;
 Mutex output;
 selected_schedule schedule;
+int quanta;
+int current_quanta;
 
 int main(){
+
+    quanta = 1;
+    init_quanta();
 
     init_queue(&ready_queue);
     init_queue(&lvl1);
@@ -71,7 +76,7 @@ int main(){
     initMutex(&input);
     initMutex(&output);
 
-    schedule = FCFS;
+    schedule = RR;
 
     MemoryManager mem[60];
     init_memory(mem);
@@ -103,13 +108,13 @@ int main(){
     //     multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
     // }
 
-    // while(programs>0){
-    //     round_robin(mem,&ready_queue);
-    // }
-
     while(programs>0){
-        fifo_scheduler(mem, &ready_queue);
+        round_robin(mem,&ready_queue);
     }
+
+    // while(programs>0){
+    //     fifo_scheduler(mem, &ready_queue);
+    // }
 
     //fifo_scheduler(mem, &ready_queue);
 

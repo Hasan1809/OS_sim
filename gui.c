@@ -1,3 +1,4 @@
+#include "gui.h"
 #include <gtk/gtk.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,9 @@ Mutex input;
 Mutex output;
 selected_schedule schedule;
 MemoryManager mem[60];
+AppWidgets *app; // Global AppWidgets
+int quanta;
+int current_quanta;
 
 // Load program file into lines
 char** separatefunction(char* fileName, int* line_count) {
@@ -38,7 +42,7 @@ char** separatefunction(char* fileName, int* line_count) {
 
     char ch;
     char result[100] = "";
-    char** lines = malloc(sizeof(char*) * 100); // Support up to 100 lines
+    char** lines = malloc(sizeof(char*) * 100);
     int i = 0;
 
     while ((ch = fgetc(file)) != EOF) {
@@ -52,7 +56,6 @@ char** separatefunction(char* fileName, int* line_count) {
         }
     }
 
-    // Handle last line if file doesn’t end with newline
     if (strlen(result) > 0) {
         lines[i] = strdup(result);
         i++;
@@ -61,7 +64,6 @@ char** separatefunction(char* fileName, int* line_count) {
     fclose(file);
     *line_count = i;
 
-    // Free unused slots
     for (int j = i; j < 100; j++) {
         lines[j] = NULL;
     }
@@ -77,33 +79,6 @@ void free_lines(char** lines, int line_count) {
     free(lines);
 }
 
-// Structure to hold GUI widgets
-typedef struct {
-    GtkWidget *window;
-    GtkWidget *overview_label;
-    GtkListStore *process_store;
-    GtkWidget *ready_queue_label;
-    GtkWidget *blocking_queue_label;
-    GtkWidget *running_process_label;
-    GtkWidget *algo_combo;
-    GtkWidget *quantum_entry;
-    GtkWidget *start_button;
-    GtkWidget *start_simulation_button;
-    GtkWidget *stop_button;
-    GtkWidget *reset_button;
-    GtkWidget *step_button;
-    GtkWidget *arrival_entry;
-    GtkWidget *mutex_status_label;
-    GtkWidget *blocked_resource_label;
-    GtkWidget *memory_view_label;
-    GtkWidget *log_text_view;
-    GtkWidget *add_program1_button;
-    GtkWidget *add_program2_button;
-    GtkWidget *add_program3_button;
-    int clock_cycle;
-    gboolean running;
-} AppWidgets;
-
 // Function prototypes
 void on_add_program1_clicked(GtkButton *button, AppWidgets *app);
 void on_add_program2_clicked(GtkButton *button, AppWidgets *app);
@@ -118,6 +93,55 @@ void update_gui(AppWidgets *app);
 void update_memory_view(AppWidgets *app);
 void update_ready_queue_label(AppWidgets *app);
 void update_running_and_blocked_labels(AppWidgets *app);
+char* get_gui_input(int pid);
+
+// Get user input via GUI dialog
+char* get_gui_input(int pid) {
+    if (!app) {
+        fprintf(stderr, "Error: GUI not initialized\n");
+        return strdup("");
+    }
+
+    GtkWidget *dialog = gtk_dialog_new_with_buttons(
+        "Input Required",
+        GTK_WINDOW(app->window),
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        "_Submit", GTK_RESPONSE_ACCEPT,
+        "_Cancel", GTK_RESPONSE_REJECT,
+        NULL
+    );
+
+    char title[64];
+    snprintf(title, sizeof(title), "Input for Process P%d", pid);
+    gtk_window_set_title(GTK_WINDOW(dialog), title);
+
+    GtkWidget *content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    GtkWidget *label = gtk_label_new("Enter value:");
+    GtkWidget *entry = gtk_entry_new();
+    gtk_box_pack_start(GTK_BOX(content_area), label, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(content_area), entry, FALSE, FALSE, 5);
+    gtk_widget_show_all(content_area);
+
+    char *input = NULL;
+    gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+    if (response == GTK_RESPONSE_ACCEPT) {
+        const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+        input = strdup(text);
+        char log[256];
+        snprintf(log, sizeof(log), "P%d received input: %s\n", pid, input);
+        gtk_text_buffer_insert_at_cursor(
+            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+            log, -1);
+    } else {
+        input = strdup("");
+        gtk_text_buffer_insert_at_cursor(
+            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+            "Input canceled\n", -1);
+    }
+
+    gtk_widget_destroy(dialog);
+    return input;
+}
 
 // Initialize the GUI
 AppWidgets* init_gui() {
@@ -125,30 +149,24 @@ AppWidgets* init_gui() {
     app->clock_cycle = 0;
     app->running = FALSE;
 
-    // Create main window
     app->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(app->window), "Scheduler Simulation");
     gtk_window_set_default_size(GTK_WINDOW(app->window), 1200, 800);
     g_signal_connect(app->window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
-    // Main container
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_container_add(GTK_CONTAINER(app->window), main_box);
 
-    // Left panel: Dashboard and Process Creation
     GtkWidget *left_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_box_pack_start(GTK_BOX(main_box), left_box, TRUE, TRUE, 5);
 
-    // Dashboard
     GtkWidget *dashboard_frame = gtk_frame_new("Main Dashboard");
     GtkWidget *dashboard_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_add(GTK_CONTAINER(dashboard_frame), dashboard_box);
 
-    // Overview Section
     app->overview_label = gtk_label_new("Processes: 0 | Clock: 0 | Algorithm: None");
     gtk_box_pack_start(GTK_BOX(dashboard_box), app->overview_label, FALSE, FALSE, 5);
 
-    // Process List
     app->process_store = gtk_list_store_new(6, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_INT, G_TYPE_STRING, G_TYPE_INT, G_TYPE_INT);
     GtkWidget *process_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(app->process_store));
     const char *columns[] = {"PID", "State", "Priority", "Memory", "PC", "Arrival Time"};
@@ -161,7 +179,6 @@ AppWidgets* init_gui() {
     gtk_container_add(GTK_CONTAINER(process_scroll), process_view);
     gtk_box_pack_start(GTK_BOX(dashboard_box), process_scroll, TRUE, TRUE, 5);
 
-    // Queue Section
     GtkWidget *queue_frame = gtk_frame_new("Queues");
     GtkWidget *queue_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_add(GTK_CONTAINER(queue_frame), queue_box);
@@ -174,12 +191,10 @@ AppWidgets* init_gui() {
     gtk_box_pack_start(GTK_BOX(dashboard_box), queue_frame, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(left_box), dashboard_frame, TRUE, TRUE, 5);
 
-    // Process Creation
     GtkWidget *creation_frame = gtk_frame_new("Process Creation");
     GtkWidget *creation_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_add(GTK_CONTAINER(creation_frame), creation_box);
 
-    // Three buttons for adding programs
     app->add_program1_button = gtk_button_new_with_label("Add Program 1");
     app->add_program2_button = gtk_button_new_with_label("Add Program 2");
     app->add_program3_button = gtk_button_new_with_label("Add Program 3");
@@ -198,11 +213,9 @@ AppWidgets* init_gui() {
     gtk_box_pack_start(GTK_BOX(creation_box), arrival_box, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(left_box), creation_frame, FALSE, FALSE, 5);
 
-    // Right panel: Controls, Resources, Memory, Log
     GtkWidget *right_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_box_pack_start(GTK_BOX(main_box), right_box, TRUE, TRUE, 5);
 
-    // Scheduler Control Panel
     GtkWidget *control_frame = gtk_frame_new("Scheduler Control");
     GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_add(GTK_CONTAINER(control_frame), control_box);
@@ -242,7 +255,6 @@ AppWidgets* init_gui() {
     gtk_box_pack_start(GTK_BOX(control_box), button_box, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(right_box), control_frame, FALSE, FALSE, 5);
 
-    // Resource Management Panel
     GtkWidget *resource_frame = gtk_frame_new("Resource Management");
     GtkWidget *resource_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_add(GTK_CONTAINER(resource_frame), resource_box);
@@ -252,7 +264,6 @@ AppWidgets* init_gui() {
     gtk_box_pack_start(GTK_BOX(resource_box), app->blocked_resource_label, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(right_box), resource_frame, FALSE, FALSE, 5);
 
-    // Memory Viewer
     GtkWidget *memory_frame = gtk_frame_new("Memory Viewer");
     GtkWidget *memory_scroll = gtk_scrolled_window_new(NULL, NULL);
     app->memory_view_label = gtk_label_new("Memory: [Empty]");
@@ -262,7 +273,6 @@ AppWidgets* init_gui() {
     gtk_container_add(GTK_CONTAINER(memory_frame), memory_scroll);
     gtk_box_pack_start(GTK_BOX(right_box), memory_frame, TRUE, TRUE, 5);
 
-    // Log & Console Panel
     GtkWidget *log_frame = gtk_frame_new("Log & Console");
     GtkWidget *log_scroll = gtk_scrolled_window_new(NULL, NULL);
     app->log_text_view = gtk_text_view_new();
@@ -322,23 +332,22 @@ void update_ready_queue_label(AppWidgets *app) {
     }
 
     gtk_label_set_text(GTK_LABEL(app->ready_queue_label), buffer);
+    gtk_widget_queue_draw(app->ready_queue_label);
 }
 
 // Update Running and Blocked labels
 void update_running_and_blocked_labels(AppWidgets *app) {
-    // Update Running Process label
     char running_buffer[64] = "Running: None";
     PCB* processes[] = {pcb1, pcb2, pcb3};
     for (int i = 0; i < 3; i++) {
         if (processes[i] != NULL && processes[i]->state == RUNNING) {
             snprintf(running_buffer, sizeof(running_buffer), "Running: P%d", processes[i]->pid);
-            break; // Assume only one process can be RUNNING
+            break;
         }
     }
     gtk_label_set_text(GTK_LABEL(app->running_process_label), running_buffer);
     gtk_widget_queue_draw(app->running_process_label);
 
-    // Update Blocking Queue label
     char blocked_buffer[256] = "Blocking Queue: [";
     int pos = strlen(blocked_buffer);
     int first = 1;
@@ -550,6 +559,9 @@ void on_start_simulation_clicked(GtkButton *button, AppWidgets *app) {
         schedule = FCFS;
     } else if (strcmp(algo, "Round Robin") == 0) {
         schedule = RR;
+        const char *quantum_str = gtk_entry_get_text(GTK_ENTRY(app->quantum_entry));
+        quanta = atoi(quantum_str);
+        init_quanta();
     } else if (strcmp(algo, "MLFQ") == 0) {
         schedule = MLFQ;
     } else {
@@ -581,6 +593,7 @@ void on_stop_clicked(GtkButton *button, AppWidgets *app) {
 void on_reset_clicked(GtkButton *button, AppWidgets *app) {
     app->running = FALSE;
     app->clock_cycle = 0;
+    os_clock = 0;
     if (pcb1) {
         free_process(mem, pcb1);
         pcb1 = NULL;
@@ -631,63 +644,51 @@ gboolean update_simulation(gpointer data) {
 
     app->clock_cycle++;
 
-    // Run scheduler to update process states and queues
-    switch (schedule) {
-    case FCFS:
-        fifo_scheduler(mem, &ready_queue);
-        break;
-    case RR:
-        round_robin(mem, &ready_queue);
-        break;
-    case MLFQ:
-        multilevel_feedback_queue(mem, &lvl1, &lvl2, &lvl3, &lvl4);
-        break;
-    default:
-        break;
-    }
-
-    // Debug log for running and queues
-    char debug_log[512];
-    snprintf(debug_log, sizeof(debug_log), "Cycle %d: Running: ", app->clock_cycle);
-    int pos = strlen(debug_log);
-    PCB* processes[] = {pcb1, pcb2, pcb3};
-    int running_found = 0;
-    for (int i = 0; i < 3; i++) {
-        if (processes[i] != NULL && processes[i]->state == RUNNING) {
-            pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "P%d", processes[i]->pid);
-            running_found = 1;
-            break; // Assume only one process can be RUNNING
-        }
-    }
-    if (!running_found) {
-        pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "None");
-    }
-    pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, ", Ready: [");
-    if (!is_empty(&ready_queue)) {
-        int first = 1;
-        for (int i = ready_queue.front; i < ready_queue.rear && i < MAX_SIZE; i++) {
-            if (ready_queue.processes[i] == NULL || ready_queue.processes[i]->state != READY) continue;
-            if (!first) pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, ", ");
-            pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "P%d", ready_queue.processes[i]->pid);
-            first = 0;
-        }
-    }
-    pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "], Blocked: [");
-    int first = 1;
-    for (int i = 0; i < 3; i++) {
-        if (processes[i] != NULL && processes[i]->state == BLOCKED) {
-            if (!first) pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, ", ");
-            pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "P%d", processes[i]->pid);
-            first = 0;
-        }
-    }
-    pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "]\n");
+    // Log cycle start
+    char cycle_log[256];
+    snprintf(cycle_log, sizeof(cycle_log), "Starting Cycle %d\n", app->clock_cycle);
     gtk_text_buffer_insert_at_cursor(
         gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-        debug_log, -1);
+        cycle_log, -1);
 
+    // Run scheduler (which executes the instruction)
+    switch (schedule) {
+        case FCFS:
+            fifo_scheduler(mem, &ready_queue);
+            break;
+        case RR:
+            round_robin(mem, &ready_queue);
+            break;
+        case MLFQ:
+            multilevel_feedback_queue(mem, &lvl1, &lvl2, &lvl3, &lvl4);
+            break;
+        default:
+            break;
+    }
+
+    // Log the instruction that was executed
+    PCB* processes[] = {pcb1, pcb2, pcb3};
+    for (int i = 0; i < 3; i++) {
+        if (processes[i] != NULL && processes[i]->state == RUNNING) {
+            // Get the instruction that was just executed (previous PC)
+            int prev_pc = processes[i]->program_counter - 1;
+            if (prev_pc >= processes[i]->mem_start && prev_pc < processes[i]->mem_end) {
+                char* instruction = mem[0].words[prev_pc].value;
+                if (instruction) {
+                    char log[256];
+                    snprintf(log, sizeof(log), "P%d executed instruction: %s\n",
+                             processes[i]->pid, instruction);
+                    gtk_text_buffer_insert_at_cursor(
+                        gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+                        log, -1);
+                }
+            }
+            break;
+        }
+    }
+
+    // Update GUI state
     update_memory_view(app);
-
     gtk_list_store_clear(app->process_store);
     if (pcb1) {
         char pid_str[16];
@@ -742,11 +743,48 @@ gboolean update_simulation(gpointer data) {
     update_running_and_blocked_labels(app);
     update_gui(app);
 
-    char log[256];
-    snprintf(log, sizeof(log), "Clock cycle %d executed\n", app->clock_cycle);
+    // Log cycle end
+    snprintf(cycle_log, sizeof(cycle_log), "Cycle %d: Running: ", app->clock_cycle);
+    int pos = strlen(cycle_log);
+    int running_found = 0;
+    for (int i = 0; i < 3; i++) {
+        if (processes[i] != NULL && processes[i]->state == RUNNING) {
+            pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "P%d", processes[i]->pid);
+            running_found = 1;
+            break;
+        }
+    }
+    if (!running_found) {
+        pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "None");
+    }
+    pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, ", Ready: [");
+    if (!is_empty(&ready_queue)) {
+        int first = 1;
+        for (int i = ready_queue.front; i < ready_queue.rear && i < MAX_SIZE; i++) {
+            if (ready_queue.processes[i] == NULL || ready_queue.processes[i]->state != READY) continue;
+            if (!first) pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, ", ");
+            pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "P%d", ready_queue.processes[i]->pid);
+            first = 0;
+        }
+    }
+    pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "], Blocked: [");
+    int first = 1;
+    for (int i = 0; i < 3; i++) {
+        if (processes[i] != NULL && processes[i]->state == BLOCKED) {
+            if (!first) pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, ", ");
+            pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "P%d", processes[i]->pid);
+            first = 0;
+        }
+    }
+    pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "]\n");
     gtk_text_buffer_insert_at_cursor(
         gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-        log, -1);
+        cycle_log, -1);
+
+    snprintf(cycle_log, sizeof(cycle_log), "Clock cycle %d executed\n", app->clock_cycle);
+    gtk_text_buffer_insert_at_cursor(
+        gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+        cycle_log, -1);
 
     return TRUE;
 }
@@ -759,6 +797,7 @@ void update_gui(AppWidgets *app) {
              app->clock_cycle,
              gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(app->algo_combo)));
     gtk_label_set_text(GTK_LABEL(app->overview_label), overview);
+    gtk_widget_queue_draw(app->overview_label);
 }
 
 // Main function
@@ -772,7 +811,7 @@ int main(int argc, char *argv[]) {
     initMutex(&input);
     initMutex(&output);
     gtk_init(&argc, &argv);
-    AppWidgets *app = init_gui();
+    app = init_gui();
     gtk_widget_show_all(app->window);
     gtk_main();
     g_free(app);
