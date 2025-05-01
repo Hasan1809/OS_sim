@@ -17,7 +17,6 @@ extern int arrival3;
 extern PCB* pcb1;
 extern PCB* pcb2;
 extern PCB* pcb3;
-extern PCB* running;
 extern int os_clock;
 extern int programs;
 extern Queue lvl1;

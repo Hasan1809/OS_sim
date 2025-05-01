@@ -15,7 +15,6 @@ int arrival3 = 0;
 PCB* pcb1 = NULL;
 PCB* pcb2 = NULL;
 PCB* pcb3 = NULL;
-PCB* running = NULL;
 int os_clock = 0;
 int programs = 3;
 Queue lvl1;
@@ -118,6 +117,7 @@ gboolean update_simulation(gpointer data);
 void update_gui(AppWidgets *app);
 void update_memory_view(AppWidgets *app);
 void update_ready_queue_label(AppWidgets *app);
+void update_running_and_blocked_labels(AppWidgets *app);
 
 // Initialize the GUI
 AppWidgets* init_gui() {
@@ -311,7 +311,7 @@ void update_ready_queue_label(AppWidgets *app) {
     } else {
         int first = 1;
         for (int i = ready_queue.front; i < ready_queue.rear && i < MAX_SIZE; i++) {
-            if (ready_queue.processes[i] == NULL || ready_queue.processes[i]->state != READY) continue; // Skip null entries
+            if (ready_queue.processes[i] == NULL || ready_queue.processes[i]->state != READY) continue;
             if (!first) {
                 pos += snprintf(buffer + pos, sizeof(buffer) - pos, ", ");
             }
@@ -322,6 +322,39 @@ void update_ready_queue_label(AppWidgets *app) {
     }
 
     gtk_label_set_text(GTK_LABEL(app->ready_queue_label), buffer);
+}
+
+// Update Running and Blocked labels
+void update_running_and_blocked_labels(AppWidgets *app) {
+    // Update Running Process label
+    char running_buffer[64] = "Running: None";
+    PCB* processes[] = {pcb1, pcb2, pcb3};
+    for (int i = 0; i < 3; i++) {
+        if (processes[i] != NULL && processes[i]->state == RUNNING) {
+            snprintf(running_buffer, sizeof(running_buffer), "Running: P%d", processes[i]->pid);
+            break; // Assume only one process can be RUNNING
+        }
+    }
+    gtk_label_set_text(GTK_LABEL(app->running_process_label), running_buffer);
+    gtk_widget_queue_draw(app->running_process_label);
+
+    // Update Blocking Queue label
+    char blocked_buffer[256] = "Blocking Queue: [";
+    int pos = strlen(blocked_buffer);
+    int first = 1;
+
+    for (int i = 0; i < 3; i++) {
+        if (processes[i] != NULL && processes[i]->state == BLOCKED) {
+            if (!first) {
+                pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, ", ");
+            }
+            pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, "P%d", processes[i]->pid);
+            first = 0;
+        }
+    }
+    pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, "]");
+    gtk_label_set_text(GTK_LABEL(app->blocking_queue_label), blocked_buffer);
+    gtk_widget_queue_draw(app->blocking_queue_label);
 }
 
 // Callback for Add Program 1
@@ -587,6 +620,18 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
 // Callback for Step
 void on_step_clicked(GtkButton *button, AppWidgets *app) {
     app->running = TRUE;
+    update_simulation(app);
+    app->running = FALSE;
+}
+
+// Update simulation state
+gboolean update_simulation(gpointer data) {
+    AppWidgets *app = (AppWidgets*)data;
+    if (!app->running) return FALSE;
+
+    app->clock_cycle++;
+
+    // Run scheduler to update process states and queues
     switch (schedule) {
     case FCFS:
         fifo_scheduler(mem, &ready_queue);
@@ -600,17 +645,47 @@ void on_step_clicked(GtkButton *button, AppWidgets *app) {
     default:
         break;
     }
-    update_simulation(app);
-    app->running = FALSE;
-}
 
-// Update simulation state
-gboolean update_simulation(gpointer data) {
-    AppWidgets *app = (AppWidgets*)data;
-    if (!app->running) return FALSE;
+    // Debug log for running and queues
+    char debug_log[512];
+    snprintf(debug_log, sizeof(debug_log), "Cycle %d: Running: ", app->clock_cycle);
+    int pos = strlen(debug_log);
+    PCB* processes[] = {pcb1, pcb2, pcb3};
+    int running_found = 0;
+    for (int i = 0; i < 3; i++) {
+        if (processes[i] != NULL && processes[i]->state == RUNNING) {
+            pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "P%d", processes[i]->pid);
+            running_found = 1;
+            break; // Assume only one process can be RUNNING
+        }
+    }
+    if (!running_found) {
+        pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "None");
+    }
+    pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, ", Ready: [");
+    if (!is_empty(&ready_queue)) {
+        int first = 1;
+        for (int i = ready_queue.front; i < ready_queue.rear && i < MAX_SIZE; i++) {
+            if (ready_queue.processes[i] == NULL || ready_queue.processes[i]->state != READY) continue;
+            if (!first) pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, ", ");
+            pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "P%d", ready_queue.processes[i]->pid);
+            first = 0;
+        }
+    }
+    pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "], Blocked: [");
+    int first = 1;
+    for (int i = 0; i < 3; i++) {
+        if (processes[i] != NULL && processes[i]->state == BLOCKED) {
+            if (!first) pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, ", ");
+            pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "P%d", processes[i]->pid);
+            first = 0;
+        }
+    }
+    pos += snprintf(debug_log + pos, sizeof(debug_log) - pos, "]\n");
+    gtk_text_buffer_insert_at_cursor(
+        gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+        debug_log, -1);
 
-    app->clock_cycle++;
-    
     update_memory_view(app);
 
     gtk_list_store_clear(app->process_store);
@@ -664,6 +739,7 @@ gboolean update_simulation(gpointer data) {
     }
 
     update_ready_queue_label(app);
+    update_running_and_blocked_labels(app);
     update_gui(app);
 
     char log[256];
