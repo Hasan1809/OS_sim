@@ -6,7 +6,8 @@ typedef enum {
     READY,
     RUNNING,
     BLOCKED,
-    TERMINATED
+    TERMINATED,
+    NOT_IN_SYSTEM
 } ProcessState;
 
 

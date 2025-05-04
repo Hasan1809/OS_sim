@@ -5,10 +5,10 @@
 PCB* create_pcb(int pid, int priority) {
     PCB* pcb = (PCB*)malloc(sizeof(PCB));
     pcb->pid = pid;
-    pcb->state = READY;
+    pcb->state = NOT_IN_SYSTEM;
     pcb->priority = priority;
     pcb->program_counter = 0;
-    pcb->mem_start = pcb->mem_end = -1; // Unallocated
+    pcb->mem_start = pcb->mem_end = -1;
     return pcb;
 }
 

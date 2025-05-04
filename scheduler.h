@@ -11,14 +11,10 @@ typedef enum{
     MLFQ
 }selected_schedule;
 
-extern int arrival1;
-extern int arrival2;
-extern int arrival3;
-extern PCB* pcb1;
-extern PCB* pcb2;
-extern PCB* pcb3;
+
 extern int os_clock;
 extern int programs;
+extern int arr_index;
 extern Queue lvl1;
 extern Queue lvl2;
 extern Queue lvl3;
@@ -28,6 +24,8 @@ extern selected_schedule schedule;
 extern bool new_arrival;
 extern int quanta;
 extern int current_quanta;
+extern PCB* pcbs_list[50];
+extern char* filepaths[50];
 
 void fifo_scheduler(MemoryManager* memory, Queue* ready_queue);
 void round_robin(MemoryManager* mem , Queue* ready_queue);

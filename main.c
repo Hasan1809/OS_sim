@@ -42,12 +42,7 @@ char** separatefunction(char* fileName, int* line_count) {
     return lines;
 }
 
-int arrival1;
-int arrival2;
-int arrival3;
-PCB* pcb1;
-PCB* pcb2;
-PCB* pcb3;
+
 int os_clock = 0;
 int programs = 3;
 Queue lvl1;
@@ -61,6 +56,9 @@ Mutex output;
 selected_schedule schedule;
 int quanta;
 int current_quanta;
+PCB* pcbs_list[50];
+char* filepaths[50];
+int arr_index = 0 ;
 
 int main(){
 
@@ -76,41 +74,32 @@ int main(){
     initMutex(&input);
     initMutex(&output);
 
-    schedule = RR;
+    schedule = MLFQ;
 
     MemoryManager mem[60];
     init_memory(mem);
 
-    arrival1 = 0;
-    arrival2 = 0;
-    arrival3 = 9;
     
-    pcb1 = create_pcb(1, 10);
-    pcb2 = create_pcb(2,12);
-    pcb3 = create_pcb(3,14);
+    pcbs_list[0] = create_pcb(0,1 );
+    pcbs_list[1] = create_pcb(1,3);
+    pcbs_list[2] = create_pcb(2,0);
+    filepaths[0] = "Program_1.txt";
+    filepaths[1] = "Program_2.txt";
+    filepaths[2] = "Program_3.txt";
+    programs = arr_index = 3;
 
 
-    int line_count;
-    char** lines = separatefunction("Program_1.txt", &line_count);
-    int line_count2;
-    char** lines2 = separatefunction("Program_2.txt", &line_count2);
-    int line_count3;
-    char** lines3 = separatefunction("Program_3.txt", &line_count3);
     
-    allocate_process(mem,pcb1,lines,line_count);   
-    allocate_process(mem,pcb2,lines2,line_count2);
-    allocate_process(mem,pcb3,lines3,line_count3);
-
     
     print_memory(mem);
 
-    // while(programs>0){
-    //     multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
-    // }
-
     while(programs>0){
-        round_robin(mem,&ready_queue);
+        multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
     }
+
+    // while(programs>0){
+    //     round_robin(mem,&ready_queue);
+    // }
 
     // while(programs>0){
     //     fifo_scheduler(mem, &ready_queue);

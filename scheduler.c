@@ -5,9 +5,44 @@
 #include "memory.h"
 #include "interpreter.h"
 #include "queue.h"
+#include "string.h"
 
 
 
+
+
+
+static char** separatefunction(char* fileName, int* line_count) {
+    FILE *file = fopen(fileName, "r");
+    if (!file) {
+        perror("Error opening file");
+        return NULL;
+    }
+
+    char ch;
+    char result[100] = "";
+    char** lines = malloc(sizeof(char*) * 100); // support up to 100 lines
+    int i = 0;
+
+    while ((ch = fgetc(file)) != EOF) {
+        if (ch == '\n') {
+            lines[i++] = strdup(result); // save the current line
+            result[0] = '\0';            // clear buffer
+        } else {
+            char temp[2] = {ch, '\0'};
+            strcat(result, temp);        // build line char by char
+        }
+    }
+
+    // Handle last line if file doesn’t end with newline
+    if (strlen(result) > 0) {
+        lines[i++] = strdup(result);
+    }
+
+    fclose(file);
+    *line_count = i;
+    return lines;
+}
 
 static PCB* check_blocked(){
     while(peek(&ready_queue)->state == BLOCKED){
@@ -19,18 +54,16 @@ static PCB* check_blocked(){
     return peek(&ready_queue);
 }
 
-static void arrivals(){
-    if (os_clock == arrival1) {
-        printf("pcb1 has arrived\n");
-        enqueue(&ready_queue, pcb1);
-    }
-    if (os_clock == arrival2) {
-        printf("pcb2 has arrived\n");
-        enqueue(&ready_queue, pcb2);
-    }
-    if (os_clock == arrival3) {
-        printf("pcb2 has arrived\n");
-        enqueue(&ready_queue, pcb3);
+static void arrivals(MemoryManager* mem) {
+    for (int i = 0; i < arr_index; i++) {
+        if (pcbs_list[i] != NULL && os_clock == pcbs_list[i]->priority) {
+            int line_count;
+            char** lines = separatefunction(filepaths[i], &line_count);
+            allocate_process(mem, pcbs_list[i], lines, line_count);
+            update_pcb_state_mem(mem, pcbs_list[i], READY);
+            enqueue(&ready_queue, pcbs_list[i]);
+            printf("Process ID %d has arrived.\n", pcbs_list[i]->pid);
+        }
     }
 }
 
@@ -38,7 +71,7 @@ void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
     // Check for process arrivals
     printf("os_clock: %d\n", os_clock);
 
-    arrivals();
+    arrivals(memory);
     // If no processes are ready, advance the os_clock
     if (is_empty(ready_queue)) {
         os_clock++;
@@ -83,7 +116,7 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
     printf("os_clock: %d\n", os_clock);
 
 
-    arrivals();
+    arrivals(mem);
     
     
     if(is_empty(ready_queue)){
@@ -140,20 +173,16 @@ Queue* next_queue = NULL;
 
 void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2, Queue* level3, Queue* level4) {
     // Check for process arrivals first
-    if (os_clock == arrival1) {
-        printf("Process ID %d has arrived.\n", pcb1->pid);
-        enqueue(level1, pcb1);
-        new_arrival = true;
-    }
-    if (os_clock == arrival2) {
-        printf("Process ID %d has arrived.\n", pcb2->pid);
-        enqueue(level1, pcb2);
-        new_arrival = true;
-    }
-    if (os_clock == arrival3) {
-        printf("Process ID %d has arrived.\n", pcb3->pid);
-        enqueue(level1, pcb3);
-        new_arrival = true;
+    for (int i = 0; i < arr_index; i++) {
+        if (pcbs_list[i] != NULL && os_clock == pcbs_list[i]->priority) {
+            int line_count;
+            char** lines = separatefunction(filepaths[i], &line_count);
+            allocate_process(mem, pcbs_list[i], lines, line_count);
+            update_pcb_state_mem(mem, pcbs_list[i], READY);
+            enqueue(level1, pcbs_list[i]);
+            printf("Process ID %d has arrived.\n", pcbs_list[i]->pid);
+            new_arrival = true;
+        }
     }
 
     if (!is_empty(level1) || !is_empty(level2) || !is_empty(level3) || !is_empty(level4) || programs > 0) {

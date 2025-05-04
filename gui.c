@@ -10,14 +10,9 @@
 #include "queue.h"
 #include "scheduler.h"
 
-int arrival1 = 0;
-int arrival2 = 0;
-int arrival3 = 0;
-PCB* pcb1 = NULL;
-PCB* pcb2 = NULL;
-PCB* pcb3 = NULL;
 int os_clock = 0;
-int programs = 3;
+int programs = 0;
+int arr_index = 0 ;
 Queue lvl1;
 Queue lvl2;
 Queue lvl3;
@@ -31,6 +26,8 @@ MemoryManager mem[60];
 AppWidgets *app; // Global AppWidgets
 int quanta;
 int current_quanta;
+PCB* pcbs_list[50] = {NULL};
+char* filepaths[50] = {NULL};
 
 // Load program file into lines
 char** separatefunction(char* fileName, int* line_count) {
@@ -78,22 +75,6 @@ void free_lines(char** lines, int line_count) {
     }
     free(lines);
 }
-
-// Function prototypes
-void on_add_program1_clicked(GtkButton *button, AppWidgets *app);
-void on_add_program2_clicked(GtkButton *button, AppWidgets *app);
-void on_add_program3_clicked(GtkButton *button, AppWidgets *app);
-void on_start_clicked(GtkButton *button, AppWidgets *app);
-void on_start_simulation_clicked(GtkButton *button, AppWidgets *app);
-void on_stop_clicked(GtkButton *button, AppWidgets *app);
-void on_reset_clicked(GtkButton *button, AppWidgets *app);
-void on_step_clicked(GtkButton *button, AppWidgets *app);
-gboolean update_simulation(gpointer data);
-void update_gui(AppWidgets *app);
-void update_memory_view(AppWidgets *app);
-void update_ready_queue_label(AppWidgets *app);
-void update_running_and_blocked_labels(AppWidgets *app);
-char* get_gui_input(int pid);
 
 // Get user input via GUI dialog
 char* get_gui_input(int pid) {
@@ -195,15 +176,9 @@ AppWidgets* init_gui() {
     GtkWidget *creation_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_add(GTK_CONTAINER(creation_frame), creation_box);
 
-    app->add_program1_button = gtk_button_new_with_label("Add Program 1");
-    app->add_program2_button = gtk_button_new_with_label("Add Program 2");
-    app->add_program3_button = gtk_button_new_with_label("Add Program 3");
-    g_signal_connect(app->add_program1_button, "clicked", G_CALLBACK(on_add_program1_clicked), app);
-    g_signal_connect(app->add_program2_button, "clicked", G_CALLBACK(on_add_program2_clicked), app);
-    g_signal_connect(app->add_program3_button, "clicked", G_CALLBACK(on_add_program3_clicked), app);
-    gtk_box_pack_start(GTK_BOX(creation_box), app->add_program1_button, FALSE, FALSE, 5);
-    gtk_box_pack_start(GTK_BOX(creation_box), app->add_program2_button, FALSE, FALSE, 5);
-    gtk_box_pack_start(GTK_BOX(creation_box), app->add_program3_button, FALSE, FALSE, 5);
+    app->add_process_button = gtk_button_new_with_label("Add Process");
+    g_signal_connect(app->add_process_button, "clicked", G_CALLBACK(on_add_process_clicked), app);
+    gtk_box_pack_start(GTK_BOX(creation_box), app->add_process_button, FALSE, FALSE, 5);
 
     GtkWidget *arrival_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget *arrival_label = gtk_label_new("Arrival Time:");
@@ -338,10 +313,9 @@ void update_ready_queue_label(AppWidgets *app) {
 // Update Running and Blocked labels
 void update_running_and_blocked_labels(AppWidgets *app) {
     char running_buffer[64] = "Running: None";
-    PCB* processes[] = {pcb1, pcb2, pcb3};
-    for (int i = 0; i < 3; i++) {
-        if (processes[i] != NULL && processes[i]->state == RUNNING) {
-            snprintf(running_buffer, sizeof(running_buffer), "Running: P%d", processes[i]->pid);
+    for (int i = 0; i < arr_index; i++) {
+        if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING) {
+            snprintf(running_buffer, sizeof(running_buffer), "Running: P%d", pcbs_list[i]->pid);
             break;
         }
     }
@@ -352,12 +326,12 @@ void update_running_and_blocked_labels(AppWidgets *app) {
     int pos = strlen(blocked_buffer);
     int first = 1;
 
-    for (int i = 0; i < 3; i++) {
-        if (processes[i] != NULL && processes[i]->state == BLOCKED) {
+    for (int i = 0; i < arr_index; i++) {
+        if (pcbs_list[i] != NULL && pcbs_list[i]->state == BLOCKED) {
             if (!first) {
                 pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, ", ");
             }
-            pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, "P%d", processes[i]->pid);
+            pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, "P%d", pcbs_list[i]->pid);
             first = 0;
         }
     }
@@ -366,171 +340,75 @@ void update_running_and_blocked_labels(AppWidgets *app) {
     gtk_widget_queue_draw(app->blocking_queue_label);
 }
 
-// Callback for Add Program 1
-void on_add_program1_clicked(GtkButton *button, AppWidgets *app) {
-    const char *arrival_time_str = gtk_entry_get_text(GTK_ENTRY(app->arrival_entry));
-    int arrival_time = atoi(arrival_time_str);
-    if (pcb1 == NULL) {
-        pcb1 = create_pcb(1, arrival_time);
-        arrival1 = arrival_time;
-        int line_count;
-        char** lines = separatefunction("Program_1.txt", &line_count);
-        if (lines) {
-            if (allocate_process(mem, pcb1, lines, line_count) == -1) {
-                gtk_text_buffer_insert_at_cursor(
-                    gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-                    "Error: Not enough memory for Program_1\n", -1);
-                free_lines(lines, line_count);
-                free(pcb1);
-                pcb1 = NULL;
-                return;
-            }
-            free_lines(lines, line_count);
-        } else {
-            gtk_text_buffer_insert_at_cursor(
-                gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-                "Error: Failed to load Program_1.txt\n", -1);
-            free(pcb1);
-            pcb1 = NULL;
-            return;
-        }
-        char pid_str[16];
-        snprintf(pid_str, sizeof(pid_str), "P%d", pcb1->pid);
-        char range_str[50];
-        snprintf(range_str, sizeof(range_str), "%d-%d", pcb1->mem_start, pcb1->mem_end);
-        GtkTreeIter iter;
-        gtk_list_store_append(app->process_store, &iter);
-        gtk_list_store_set(app->process_store, &iter,
-                           0, pid_str,
-                           1, state_to_string(pcb1),
-                           2, pcb1->priority,
-                           3, range_str,
-                           4, pcb1->program_counter,
-                           5, arrival1,
-                           -1);
-        char log[256];
-        snprintf(log, sizeof(log), "Added Program1 as process P%d with arrival time %d\n", pcb1->pid, arrival_time);
+// Callback for Add Process
+void on_add_process_clicked(GtkButton *button, AppWidgets *app) {
+    if (arr_index >= 50) {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            log, -1);
-        gtk_widget_set_sensitive(app->add_program1_button, FALSE);
-        update_memory_view(app);
-    } else {
-        gtk_text_buffer_insert_at_cursor(
-            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            "Program1 already added\n", -1);
+            "Error: Maximum processes reached (50)\n", -1);
+        gtk_widget_set_sensitive(app->add_process_button, FALSE);
+        return;
     }
-}
 
-// Callback for Add Program 2
-void on_add_program2_clicked(GtkButton *button, AppWidgets *app) {
+    // Get arrival time
     const char *arrival_time_str = gtk_entry_get_text(GTK_ENTRY(app->arrival_entry));
     int arrival_time = atoi(arrival_time_str);
-    if (pcb2 == NULL) {
-        pcb2 = create_pcb(2, arrival_time);
-        arrival2 = arrival_time;
-        int line_count;
-        char** lines = separatefunction("Program_2.txt", &line_count);
-        if (lines) {
-            if (allocate_process(mem, pcb2, lines, line_count) == -1) {
-                gtk_text_buffer_insert_at_cursor(
-                    gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-                    "Error: Not enough memory for Program_2\n", -1);
-                free_lines(lines, line_count);
-                free(pcb2);
-                pcb2 = NULL;
-                return;
-            }
-            free_lines(lines, line_count);
-        } else {
-            gtk_text_buffer_insert_at_cursor(
-                gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-                "Error: Failed to load Program_2.txt\n", -1);
-            free(pcb2);
-            pcb2 = NULL;
-            return;
-        }
-        char pid_str[16];
-        snprintf(pid_str, sizeof(pid_str), "P%d", pcb2->pid);
-        char range_str[50];
-        snprintf(range_str, sizeof(range_str), "%d-%d", pcb2->mem_start, pcb2->mem_end);
-        GtkTreeIter iter;
-        gtk_list_store_append(app->process_store, &iter);
-        gtk_list_store_set(app->process_store, &iter,
-                           0, pid_str,
-                           1, state_to_string(pcb2),
-                           2, pcb2->priority,
-                           3, range_str,
-                           4, pcb2->program_counter,
-                           5, arrival2,
-                           -1);
-        char log[256];
-        snprintf(log, sizeof(log), "Added Program2 as process P%d with arrival time %d\n", pcb2->pid, arrival_time);
+    if (arrival_time < 0 || strlen(arrival_time_str) == 0) {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            log, -1);
-        gtk_widget_set_sensitive(app->add_program2_button, FALSE);
-        update_memory_view(app);
-    } else {
-        gtk_text_buffer_insert_at_cursor(
-            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            "Program2 already added\n", -1);
+            "Error: Invalid arrival time\n", -1);
+        return;
     }
-}
 
-// Callback for Add Program 3
-void on_add_program3_clicked(GtkButton *button, AppWidgets *app) {
-    const char *arrival_time_str = gtk_entry_get_text(GTK_ENTRY(app->arrival_entry));
-    int arrival_time = atoi(arrival_time_str);
-    if (pcb3 == NULL) {
-        pcb3 = create_pcb(3, arrival_time);
-        arrival3 = arrival_time;
-        int line_count;
-        char** lines = separatefunction("Program_3.txt", &line_count);
-        if (lines) {
-            if (allocate_process(mem, pcb3, lines, line_count) == -1) {
-                gtk_text_buffer_insert_at_cursor(
-                    gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-                    "Error: Not enough memory for Program_3\n", -1);
-                free_lines(lines, line_count);
-                free(pcb3);
-                pcb3 = NULL;
-                return;
-            }
-            free_lines(lines, line_count);
-        } else {
-            gtk_text_buffer_insert_at_cursor(
-                gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-                "Error: Failed to load Program_3.txt\n", -1);
-            free(pcb3);
-            pcb3 = NULL;
-            return;
-        }
-        char pid_str[16];
-        snprintf(pid_str, sizeof(pid_str), "P%d", pcb3->pid);
-        char range_str[50];
-        snprintf(range_str, sizeof(range_str), "%d-%d", pcb3->mem_start, pcb3->mem_end);
-        GtkTreeIter iter;
-        gtk_list_store_append(app->process_store, &iter);
-        gtk_list_store_set(app->process_store, &iter,
-                           0, pid_str,
-                           1, state_to_string(pcb3),
-                           2, pcb3->priority,
-                           3, range_str,
-                           4, pcb3->program_counter,
-                           5, arrival3,
-                           -1);
-        char log[256];
-        snprintf(log, sizeof(log), "Added Program3 as process P%d with arrival time %d\n", pcb3->pid, arrival_time);
-        gtk_text_buffer_insert_at_cursor(
-            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            log, -1);
-        gtk_widget_set_sensitive(app->add_program3_button, FALSE);
-        update_memory_view(app);
+    // Create file chooser dialog
+    GtkWidget *dialog = gtk_file_chooser_dialog_new(
+        "Select Program File",
+        GTK_WINDOW(app->window),
+        GTK_FILE_CHOOSER_ACTION_OPEN,
+        "_Open", GTK_RESPONSE_ACCEPT,
+        "_Cancel", GTK_RESPONSE_REJECT,
+        NULL
+    );
+
+    // Add filter for .txt files
+    GtkFileFilter *filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(filter, "Text Files");
+    gtk_file_filter_add_pattern(filter, "*.txt");
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+
+    char *filename = NULL;
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+        filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
     } else {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            "Program3 already added\n", -1);
+            "Process addition canceled\n", -1);
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    gtk_widget_destroy(dialog);
+
+    // Store filepath
+    filepaths[arr_index] = strdup(filename);
+
+    // Create PCB
+    pcbs_list[arr_index] = create_pcb(arr_index + 1, arrival_time);
+    PCB *pcb = pcbs_list[arr_index];
+
+    // Log addition
+    char log[256];
+    snprintf(log, sizeof(log), "Added process P%d with program %s and arrival time %d\n",
+             pcb->pid, g_path_get_basename(filename), arrival_time);
+    gtk_text_buffer_insert_at_cursor(
+        gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+        log, -1);
+
+    free(filename);
+    arr_index++;
+
+    // Disable button if max processes reached
+    if (arr_index >= 50) {
+        gtk_widget_set_sensitive(app->add_process_button, FALSE);
     }
 }
 
@@ -547,10 +425,11 @@ void on_start_clicked(GtkButton *button, AppWidgets *app) {
 
 // Callback for Start Simulation
 void on_start_simulation_clicked(GtkButton *button, AppWidgets *app) {
-    if (!pcb1 || !pcb2 || !pcb3) {
+    programs = arr_index;
+    if (programs == 0) {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            "Error: All programs must be added for scheduler setup\n", -1);
+            "Error: At least one process must be added\n", -1);
         return;
     }
 
@@ -594,21 +473,20 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
     app->running = FALSE;
     app->clock_cycle = 0;
     os_clock = 0;
-    if (pcb1) {
-        free_process(mem, pcb1);
-        pcb1 = NULL;
+
+    // Free all processes and filepaths
+    for (int i = 0; i < arr_index; i++) {
+        if (pcbs_list[i]) {
+            free_process(mem, pcbs_list[i]);
+            pcbs_list[i] = NULL;
+        }
+        if (filepaths[i]) {
+            free(filepaths[i]);
+            filepaths[i] = NULL;
+        }
     }
-    if (pcb2) {
-        free_process(mem, pcb2);
-        pcb2 = NULL;
-    }
-    if (pcb3) {
-        free_process(mem, pcb3);
-        pcb3 = NULL;
-    }
-    arrival1 = 0;
-    arrival2 = 0;
-    arrival3 = 0;
+    arr_index = 0;
+
     init_queue(&ready_queue);
     init_queue(&lvl1);
     init_queue(&lvl2);
@@ -624,9 +502,7 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
     update_memory_view(app);
     GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view));
     gtk_text_buffer_set_text(buffer, "Simulation reset\n", -1);
-    gtk_widget_set_sensitive(app->add_program1_button, TRUE);
-    gtk_widget_set_sensitive(app->add_program2_button, TRUE);
-    gtk_widget_set_sensitive(app->add_program3_button, TRUE);
+    gtk_widget_set_sensitive(app->add_process_button, TRUE);
     gtk_widget_set_sensitive(app->start_simulation_button, TRUE);
 }
 
@@ -651,7 +527,7 @@ gboolean update_simulation(gpointer data) {
         gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
         cycle_log, -1);
 
-    // Run scheduler (which executes the instruction)
+    // Run scheduler
     switch (schedule) {
         case FCFS:
             fifo_scheduler(mem, &ready_queue);
@@ -667,17 +543,15 @@ gboolean update_simulation(gpointer data) {
     }
 
     // Log the instruction that was executed
-    PCB* processes[] = {pcb1, pcb2, pcb3};
-    for (int i = 0; i < 3; i++) {
-        if (processes[i] != NULL && processes[i]->state == RUNNING) {
-            // Get the instruction that was just executed (previous PC)
-            int prev_pc = processes[i]->program_counter - 1;
-            if (prev_pc >= processes[i]->mem_start && prev_pc < processes[i]->mem_end) {
-                char* instruction = mem[0].words[prev_pc].value;
+    for (int i = 0; i < arr_index; i++) {
+        if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING) {
+            int prev_pc = pcbs_list[i]->program_counter - 1;
+            if (prev_pc >= pcbs_list[i]->mem_start && prev_pc < pcbs_list[i]->mem_end) {
+                char *instruction = mem[0].words[prev_pc].value;
                 if (instruction) {
                     char log[256];
                     snprintf(log, sizeof(log), "P%d executed instruction: %s\n",
-                             processes[i]->pid, instruction);
+                             pcbs_list[i]->pid, instruction);
                     gtk_text_buffer_insert_at_cursor(
                         gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
                         log, -1);
@@ -687,58 +561,28 @@ gboolean update_simulation(gpointer data) {
         }
     }
 
-    // Update GUI state
-    update_memory_view(app);
+    // Update process table
     gtk_list_store_clear(app->process_store);
-    if (pcb1) {
-        char pid_str[16];
-        snprintf(pid_str, sizeof(pid_str), "P%d", pcb1->pid);
-        char range_str[50];
-        snprintf(range_str, sizeof(range_str), "%d-%d", pcb1->mem_start, pcb1->mem_end);
-        GtkTreeIter iter;
-        gtk_list_store_append(app->process_store, &iter);
-        gtk_list_store_set(app->process_store, &iter,
-                           0, pid_str,
-                           1, state_to_string(pcb1),
-                           2, pcb1->priority,
-                           3, range_str,
-                           4, pcb1->program_counter,
-                           5, arrival1,
-                           -1);
-    }
-    if (pcb2) {
-        char pid_str[16];
-        snprintf(pid_str, sizeof(pid_str), "P%d", pcb2->pid);
-        char range_str[50];
-        snprintf(range_str, sizeof(range_str), "%d-%d", pcb2->mem_start, pcb2->mem_end);
-        GtkTreeIter iter;
-        gtk_list_store_append(app->process_store, &iter);
-        gtk_list_store_set(app->process_store, &iter,
-                           0, pid_str,
-                           1, state_to_string(pcb2),
-                           2, pcb2->priority,
-                           3, range_str,
-                           4, pcb2->program_counter,
-                           5, arrival2,
-                           -1);
-    }
-    if (pcb3) {
-        char pid_str[16];
-        snprintf(pid_str, sizeof(pid_str), "P%d", pcb3->pid);
-        char range_str[50];
-        snprintf(range_str, sizeof(range_str), "%d-%d", pcb3->mem_start, pcb3->mem_end);
-        GtkTreeIter iter;
-        gtk_list_store_append(app->process_store, &iter);
-        gtk_list_store_set(app->process_store, &iter,
-                           0, pid_str,
-                           1, state_to_string(pcb3),
-                           2, pcb3->priority,
-                           3, range_str,
-                           4, pcb3->program_counter,
-                           5, arrival3,
-                           -1);
+    for (int i = 0; i < arr_index; i++) {
+        if (pcbs_list[i]) {
+            char pid_str[16];
+            snprintf(pid_str, sizeof(pid_str), "P%d", pcbs_list[i]->pid);
+            char range_str[50];
+            snprintf(range_str, sizeof(range_str), "%d-%d", pcbs_list[i]->mem_start, pcbs_list[i]->mem_end);
+            GtkTreeIter iter;
+            gtk_list_store_append(app->process_store, &iter);
+            gtk_list_store_set(app->process_store, &iter,
+                               0, pid_str,
+                               1, state_to_string(pcbs_list[i]),
+                               2, pcbs_list[i]->priority,
+                               3, range_str,
+                               4, pcbs_list[i]->program_counter,
+                               5, pcbs_list[i]->priority,
+                               -1);
+        }
     }
 
+    update_memory_view(app);
     update_ready_queue_label(app);
     update_running_and_blocked_labels(app);
     update_gui(app);
@@ -747,9 +591,9 @@ gboolean update_simulation(gpointer data) {
     snprintf(cycle_log, sizeof(cycle_log), "Cycle %d: Running: ", app->clock_cycle);
     int pos = strlen(cycle_log);
     int running_found = 0;
-    for (int i = 0; i < 3; i++) {
-        if (processes[i] != NULL && processes[i]->state == RUNNING) {
-            pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "P%d", processes[i]->pid);
+    for (int i = 0; i < arr_index; i++) {
+        if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING) {
+            pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "P%d", pcbs_list[i]->pid);
             running_found = 1;
             break;
         }
@@ -769,10 +613,10 @@ gboolean update_simulation(gpointer data) {
     }
     pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "], Blocked: [");
     int first = 1;
-    for (int i = 0; i < 3; i++) {
-        if (processes[i] != NULL && processes[i]->state == BLOCKED) {
+    for (int i = 0; i < arr_index; i++) {
+        if (pcbs_list[i] != NULL && pcbs_list[i]->state == BLOCKED) {
             if (!first) pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, ", ");
-            pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "P%d", processes[i]->pid);
+            pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "P%d", pcbs_list[i]->pid);
             first = 0;
         }
     }
@@ -793,7 +637,7 @@ gboolean update_simulation(gpointer data) {
 void update_gui(AppWidgets *app) {
     char overview[256];
     snprintf(overview, sizeof(overview), "Processes: %d | Clock: %d | Algorithm: %s",
-             (pcb1 ? 1 : 0) + (pcb2 ? 1 : 0) + (pcb3 ? 1 : 0),
+             programs,
              app->clock_cycle,
              gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(app->algo_combo)));
     gtk_label_set_text(GTK_LABEL(app->overview_label), overview);
