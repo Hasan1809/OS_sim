@@ -98,7 +98,6 @@ void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
         execute_instruction(memory, current_process);
         
         if(current_process->program_counter >= current_process->mem_end - 8){
-            programs--;
             printf("Process ID %d completed.\n", current_process->pid);
             update_pcb_state_mem(memory,current_process,TERMINATED);
             dequeue(ready_queue);
@@ -157,7 +156,6 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
         current_quanta--;
         if(current_process->program_counter >= current_process->mem_end - 8){
             current_quanta = quanta;
-            programs--;
             update_pcb_state_mem(mem,current_process,TERMINATED);
             printf("Process ID %d completed.\n", current_process->pid);
             dequeue(ready_queue);
@@ -302,7 +300,6 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
         cur_quantum[quantum_index] = quantum[quantum_index];
         update_pcb_state_mem(mem, current_process, TERMINATED);
         printf("Process ID %d completed.\n", current_process->pid);
-        programs--;
         new_arrival = false;
         current_queue = NULL;
     }

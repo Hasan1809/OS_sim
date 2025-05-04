@@ -379,6 +379,13 @@ void on_add_process_clicked(GtkButton *button, AppWidgets *app) {
     char *filename = NULL;
     if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
         filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+        if (!filename) {
+            gtk_text_buffer_insert_at_cursor(
+                gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+                "Error: No valid file selected\n", -1);
+            gtk_widget_destroy(dialog);
+            return;
+        }
     } else {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -393,66 +400,8 @@ void on_add_process_clicked(GtkButton *button, AppWidgets *app) {
 
     // Create PCB
     pcbs_list[programs] = create_pcb(programs + 1, arrival_time);
-    PCB *pcb = pcbs_list[programs];
-
-    // Load program file
-    int line_count;
-    char **lines = separatefunction(filename, &line_count);
-    if (!lines) {
-        char log[256];
-        snprintf(log, sizeof(log), "Error: Failed to load %s\n", g_path_get_basename(filename));
-        gtk_text_buffer_insert_at_cursor(
-            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            log, -1);
-        free(filename);
-        free(pcb);
-        pcbs_list[programs] = NULL;
-        filepaths[programs] = NULL;
-        return;
-    }
-
-    // Allocate memory
-    if (allocate_process(mem, pcb, lines, line_count) == -1) {
-        char log[256];
-        snprintf(log, sizeof(log), "Error: Not enough memory for %s\n", g_path_get_basename(filename));
-        gtk_text_buffer_insert_at_cursor(
-            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            log, -1);
-        free_lines(lines, line_count);
-        free(filename);
-        free(pcb);
-        pcbs_list[programs] = NULL;
-        filepaths[programs] = NULL;
-        return;
-    }
-    free_lines(lines, line_count);
-
-    // Update process table
-    char pid_str[16];
-    snprintf(pid_str, sizeof(pid_str), "P%d", pcb->pid);
-    char range_str[50];
-    snprintf(range_str, sizeof(range_str), "%d-%d", pcb->mem_start, pcb->mem_end);
-    GtkTreeIter iter;
-    gtk_list_store_append(app->process_store, &iter);
-    gtk_list_store_set(app->process_store, &iter,
-                       0, pid_str,
-                       1, state_to_string(pcb),
-                       2, pcb->priority,
-                       3, range_str,
-                       4, pcb->program_counter,
-                       5, pcb->priority,
-                       -1);
-
-    // Log addition
-    char log[256];
-    snprintf(log, sizeof(log), "Added process P%d with program %s and arrival time %d\n",
-             pcb->pid, g_path_get_basename(filename), arrival_time);
-    gtk_text_buffer_insert_at_cursor(
-        gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-        log, -1);
 
     free(filename);
-    update_memory_view(app);
     programs++;
 
     // Disable button if max processes reached
@@ -474,6 +423,7 @@ void on_start_clicked(GtkButton *button, AppWidgets *app) {
 
 // Callback for Start Simulation
 void on_start_simulation_clicked(GtkButton *button, AppWidgets *app) {
+    printf("clicked sim");
     if (programs == 0) {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -490,6 +440,7 @@ void on_start_simulation_clicked(GtkButton *button, AppWidgets *app) {
         quanta = atoi(quantum_str);
         init_quanta();
     } else if (strcmp(algo, "MLFQ") == 0) {
+        printf("here");
         schedule = MLFQ;
     } else {
         gtk_text_buffer_insert_at_cursor(
