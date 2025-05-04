@@ -32,5 +32,6 @@ void round_robin(MemoryManager* mem , Queue* ready_queue);
 void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2, Queue* level3, Queue* level4);
 void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, int quantum);
 void init_quanta();
+int all_blocked(Queue* q);
 
 #endif

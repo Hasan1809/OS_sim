@@ -80,9 +80,9 @@ int main(){
     init_memory(mem);
 
     
-    pcbs_list[0] = create_pcb(0,1 );
-    pcbs_list[1] = create_pcb(1,3);
-    pcbs_list[2] = create_pcb(2,0);
+    pcbs_list[0] = create_pcb(1,1 );
+    pcbs_list[1] = create_pcb(2,3);
+    pcbs_list[2] = create_pcb(3,0);
     filepaths[0] = "Program_1.txt";
     filepaths[1] = "Program_2.txt";
     filepaths[2] = "Program_3.txt";

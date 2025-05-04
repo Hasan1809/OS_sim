@@ -55,7 +55,7 @@ static PCB* check_blocked(){
 }
 
 static void arrivals(MemoryManager* mem) {
-    for (int i = 0; i < arr_index; i++) {
+    for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && os_clock == pcbs_list[i]->priority) {
             int line_count;
             char** lines = separatefunction(filepaths[i], &line_count);
@@ -173,7 +173,7 @@ Queue* next_queue = NULL;
 
 void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2, Queue* level3, Queue* level4) {
     // Check for process arrivals first
-    for (int i = 0; i < arr_index; i++) {
+    for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && os_clock == pcbs_list[i]->priority) {
             int line_count;
             char** lines = separatefunction(filepaths[i], &line_count);
@@ -188,7 +188,7 @@ void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2,
     if (!is_empty(level1) || !is_empty(level2) || !is_empty(level3) || !is_empty(level4) || programs > 0) {
         
         // Process each level in order of priority
-        if (!is_empty(level1)) {
+        if (!is_empty(level1) && !all_blocked(level1)) {
             if (new_arrival && (current_queue != level1 && current_queue != NULL)) {
                 // Finish current quantum before potentially switching
                 if (current_queue == level2) {
@@ -203,13 +203,43 @@ void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2,
                 next_queue = level2;
                 execute_level(mem, level1, level2, 0);
             }
-        } else if (!is_empty(level2)) {
+        } else if (!is_empty(level2) && !all_blocked(level2)) {
+            if (current_queue == level2) {
+                execute_level(mem, level2, level3, 1);
+                return;
+            } else if (current_queue == level3) {
+                execute_level(mem, level3, level4, 2);
+                return;
+            } else if (current_queue == level4) {
+                execute_level(mem, level4, level4, 3);
+                return;
+            }
             current_queue = level2;
             execute_level(mem, level2, level3, 1);
-        } else if (!is_empty(level3)) {
+        } else if (!is_empty(level3)&& !all_blocked(level3)) {
+            if (current_queue == level2) {
+                execute_level(mem, level2, level3, 1);
+                return;
+            } else if (current_queue == level3) {
+                execute_level(mem, level3, level4, 2);
+                return;
+            } else if (current_queue == level4) {
+                execute_level(mem, level4, level4, 3);
+                return;
+            }
             current_queue = level3;
             execute_level(mem, level3, level4, 2);
-        } else if (!is_empty(level4)) {
+        } else if (!is_empty(level4) && !all_blocked(level4)) {
+            if (current_queue == level2) {
+                execute_level(mem, level2, level3, 1);
+                return;
+            } else if (current_queue == level3) {
+                execute_level(mem, level3, level4, 2);
+                return;
+            } else if (current_queue == level4) {
+                execute_level(mem, level4, level4, 3);
+                return;
+            }
             current_queue = level4;
             execute_level(mem, level4, level4, 3);
         } else {
@@ -221,17 +251,26 @@ void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2,
 
 void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, int quantum_index) {
     PCB* current_process = peek(current_level);
+
+    while(current_process->state == BLOCKED){
+        PCB* temp = dequeue(current_level);
+        enqueue(current_level,temp);
+        current_process = peek(current_level);
+    }
+
     printf("Executing Process ID: %d at Level with Quantum %d\n", current_process->pid, quantum[quantum_index]);
     if (current_process->state != RUNNING){
         update_pcb_state_mem(mem, current_process, RUNNING);
     }
+    
     execute_instruction(mem, current_process);
-    if(current_process->state==BLOCKED){
-        dequeue(current_level);
-        current_queue = NULL;
-        cur_quantum[quantum_index] = quantum[quantum_index];
-        return;
-    }
+    // if(current_process->state==BLOCKED){
+    //     PCB* temp = dequeue(current_level);
+    //     enqueue(current_level,temp);
+    //     current_queue = NULL;
+    //     cur_quantum[quantum_index] = quantum[quantum_index];
+    //     return;
+    // }
     cur_quantum[quantum_index]--;
     
     // Check if the process has completed execution
@@ -239,7 +278,9 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
         if(cur_quantum[quantum_index] == 0) {
             current_queue = NULL;
             cur_quantum[quantum_index] = quantum[quantum_index];
-            update_pcb_state_mem(mem, current_process, READY);
+            if(current_process->state !=BLOCKED){
+                update_pcb_state_mem(mem, current_process, READY);
+            }
             dequeue(current_level);
             if (current_level != next_level) {
                 printf("Process ID %d moved to the next level.\n", current_process->pid);
@@ -248,6 +289,13 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
                 enqueue(current_level, current_process);
             }
             new_arrival = false;
+        }else if(current_process->state==BLOCKED){
+            PCB* temp = dequeue(current_level);
+            enqueue(current_level,temp);
+            current_queue = NULL;
+            cur_quantum[quantum_index] = quantum[quantum_index];
+        }else{
+            current_queue = current_level;
         }
     } else {
         dequeue(current_level);
@@ -258,5 +306,14 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
         new_arrival = false;
         current_queue = NULL;
     }
-    print_queue(&lvl1);
+    printf("%d \n", cur_quantum[quantum_index]);
+}
+
+int all_blocked(Queue* q){
+    for (int i = q->front; i < q->rear; i++) {
+        if (q->processes[i]->state != BLOCKED) {
+            return 0; // Found a process that is not blocked
+        }
+    }
+    return 1; // All processes are blocked
 }

@@ -12,7 +12,7 @@
 
 int os_clock = 0;
 int programs = 0;
-int arr_index = 0 ;
+int arr_index = 0;
 Queue lvl1;
 Queue lvl2;
 Queue lvl3;
@@ -313,7 +313,7 @@ void update_ready_queue_label(AppWidgets *app) {
 // Update Running and Blocked labels
 void update_running_and_blocked_labels(AppWidgets *app) {
     char running_buffer[64] = "Running: None";
-    for (int i = 0; i < arr_index; i++) {
+    for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING) {
             snprintf(running_buffer, sizeof(running_buffer), "Running: P%d", pcbs_list[i]->pid);
             break;
@@ -326,7 +326,7 @@ void update_running_and_blocked_labels(AppWidgets *app) {
     int pos = strlen(blocked_buffer);
     int first = 1;
 
-    for (int i = 0; i < arr_index; i++) {
+    for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && pcbs_list[i]->state == BLOCKED) {
             if (!first) {
                 pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, ", ");
@@ -342,7 +342,7 @@ void update_running_and_blocked_labels(AppWidgets *app) {
 
 // Callback for Add Process
 void on_add_process_clicked(GtkButton *button, AppWidgets *app) {
-    if (arr_index >= 50) {
+    if (programs >= 50) {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
             "Error: Maximum processes reached (50)\n", -1);
@@ -389,11 +389,59 @@ void on_add_process_clicked(GtkButton *button, AppWidgets *app) {
     gtk_widget_destroy(dialog);
 
     // Store filepath
-    filepaths[arr_index] = strdup(filename);
+    filepaths[programs] = strdup(filename);
 
     // Create PCB
-    pcbs_list[arr_index] = create_pcb(arr_index + 1, arrival_time);
-    PCB *pcb = pcbs_list[arr_index];
+    pcbs_list[programs] = create_pcb(programs + 1, arrival_time);
+    PCB *pcb = pcbs_list[programs];
+
+    // Load program file
+    int line_count;
+    char **lines = separatefunction(filename, &line_count);
+    if (!lines) {
+        char log[256];
+        snprintf(log, sizeof(log), "Error: Failed to load %s\n", g_path_get_basename(filename));
+        gtk_text_buffer_insert_at_cursor(
+            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+            log, -1);
+        free(filename);
+        free(pcb);
+        pcbs_list[programs] = NULL;
+        filepaths[programs] = NULL;
+        return;
+    }
+
+    // Allocate memory
+    if (allocate_process(mem, pcb, lines, line_count) == -1) {
+        char log[256];
+        snprintf(log, sizeof(log), "Error: Not enough memory for %s\n", g_path_get_basename(filename));
+        gtk_text_buffer_insert_at_cursor(
+            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+            log, -1);
+        free_lines(lines, line_count);
+        free(filename);
+        free(pcb);
+        pcbs_list[programs] = NULL;
+        filepaths[programs] = NULL;
+        return;
+    }
+    free_lines(lines, line_count);
+
+    // Update process table
+    char pid_str[16];
+    snprintf(pid_str, sizeof(pid_str), "P%d", pcb->pid);
+    char range_str[50];
+    snprintf(range_str, sizeof(range_str), "%d-%d", pcb->mem_start, pcb->mem_end);
+    GtkTreeIter iter;
+    gtk_list_store_append(app->process_store, &iter);
+    gtk_list_store_set(app->process_store, &iter,
+                       0, pid_str,
+                       1, state_to_string(pcb),
+                       2, pcb->priority,
+                       3, range_str,
+                       4, pcb->program_counter,
+                       5, pcb->priority,
+                       -1);
 
     // Log addition
     char log[256];
@@ -404,10 +452,11 @@ void on_add_process_clicked(GtkButton *button, AppWidgets *app) {
         log, -1);
 
     free(filename);
-    arr_index++;
+    update_memory_view(app);
+    programs++;
 
     // Disable button if max processes reached
-    if (arr_index >= 50) {
+    if (programs >= 50) {
         gtk_widget_set_sensitive(app->add_process_button, FALSE);
     }
 }
@@ -425,7 +474,6 @@ void on_start_clicked(GtkButton *button, AppWidgets *app) {
 
 // Callback for Start Simulation
 void on_start_simulation_clicked(GtkButton *button, AppWidgets *app) {
-    programs = arr_index;
     if (programs == 0) {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -475,7 +523,7 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
     os_clock = 0;
 
     // Free all processes and filepaths
-    for (int i = 0; i < arr_index; i++) {
+    for (int i = 0; i < programs; i++) {
         if (pcbs_list[i]) {
             free_process(mem, pcbs_list[i]);
             pcbs_list[i] = NULL;
@@ -485,7 +533,7 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
             filepaths[i] = NULL;
         }
     }
-    arr_index = 0;
+    programs = 0;
 
     init_queue(&ready_queue);
     init_queue(&lvl1);
@@ -543,7 +591,7 @@ gboolean update_simulation(gpointer data) {
     }
 
     // Log the instruction that was executed
-    for (int i = 0; i < arr_index; i++) {
+    for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING) {
             int prev_pc = pcbs_list[i]->program_counter - 1;
             if (prev_pc >= pcbs_list[i]->mem_start && prev_pc < pcbs_list[i]->mem_end) {
@@ -563,7 +611,7 @@ gboolean update_simulation(gpointer data) {
 
     // Update process table
     gtk_list_store_clear(app->process_store);
-    for (int i = 0; i < arr_index; i++) {
+    for (int i = 0; i < programs; i++) {
         if (pcbs_list[i]) {
             char pid_str[16];
             snprintf(pid_str, sizeof(pid_str), "P%d", pcbs_list[i]->pid);
@@ -591,7 +639,7 @@ gboolean update_simulation(gpointer data) {
     snprintf(cycle_log, sizeof(cycle_log), "Cycle %d: Running: ", app->clock_cycle);
     int pos = strlen(cycle_log);
     int running_found = 0;
-    for (int i = 0; i < arr_index; i++) {
+    for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING) {
             pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "P%d", pcbs_list[i]->pid);
             running_found = 1;
@@ -613,7 +661,7 @@ gboolean update_simulation(gpointer data) {
     }
     pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "], Blocked: [");
     int first = 1;
-    for (int i = 0; i < arr_index; i++) {
+    for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && pcbs_list[i]->state == BLOCKED) {
             if (!first) pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, ", ");
             pos += snprintf(cycle_log + pos, sizeof(cycle_log) - pos, "P%d", pcbs_list[i]->pid);
