@@ -14,7 +14,8 @@ const char* ColorStrings[] = {
     "READY",
     "RUNNING",
     "BLOCKED",
-    "TERMINATED"
+    "TERMINATED",
+    "NOT_IN_SYSTEM"
 };
 
 int allocate_process(MemoryManager* mem, PCB* pcb, char** program, int program_len) {

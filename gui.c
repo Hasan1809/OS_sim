@@ -408,6 +408,12 @@ void on_add_process_clicked(GtkButton *button, AppWidgets *app) {
     if (programs >= 50) {
         gtk_widget_set_sensitive(app->add_process_button, FALSE);
     }
+    char log[256];
+    snprintf(log, sizeof(log), "Added process with pid: %d, filepath: %s, arrival time: %d\n", 
+             pcbs_list[programs - 1]->pid, filepaths[programs - 1], arrival_time);
+    gtk_text_buffer_insert_at_cursor(
+        gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+        log, -1);
 }
 
 // Callback for Start (▶ button)
@@ -423,7 +429,7 @@ void on_start_clicked(GtkButton *button, AppWidgets *app) {
 
 // Callback for Start Simulation
 void on_start_simulation_clicked(GtkButton *button, AppWidgets *app) {
-    printf("clicked sim");
+    printf("clicked sim\n");
     if (programs == 0) {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -433,14 +439,16 @@ void on_start_simulation_clicked(GtkButton *button, AppWidgets *app) {
 
     char *algo = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(app->algo_combo));
     if (strcmp(algo, "FCFS") == 0) {
+        printf("fcfs selected \n");
         schedule = FCFS;
     } else if (strcmp(algo, "Round Robin") == 0) {
+        printf("round robin selected with quanta: %d \n", quanta);
         schedule = RR;
         const char *quantum_str = gtk_entry_get_text(GTK_ENTRY(app->quantum_entry));
         quanta = atoi(quantum_str);
         init_quanta();
     } else if (strcmp(algo, "MLFQ") == 0) {
-        printf("here");
+        printf("mlfq selected \n");
         schedule = MLFQ;
     } else {
         gtk_text_buffer_insert_at_cursor(
@@ -543,7 +551,7 @@ gboolean update_simulation(gpointer data) {
 
     // Log the instruction that was executed
     for (int i = 0; i < programs; i++) {
-        if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING) {
+        if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING &&pcbs_list[i]->mem_start!=-1) {
             int prev_pc = pcbs_list[i]->program_counter - 1;
             if (prev_pc >= pcbs_list[i]->mem_start && prev_pc < pcbs_list[i]->mem_end) {
                 char *instruction = mem[0].words[prev_pc].value;
@@ -560,7 +568,7 @@ gboolean update_simulation(gpointer data) {
         }
     }
 
-    // Update process table
+    //Update process table
     gtk_list_store_clear(app->process_store);
     for (int i = 0; i < programs; i++) {
         if (pcbs_list[i]) {

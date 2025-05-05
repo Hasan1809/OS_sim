@@ -80,10 +80,10 @@ int main(){
     init_memory(mem);
 
     
-    pcbs_list[0] = create_pcb(1,1 );
-    pcbs_list[1] = create_pcb(2,3);
-    pcbs_list[2] = create_pcb(3,0);
-    filepaths[0] = "Program_1.txt";
+    pcbs_list[0] = create_pcb(1,7 );
+    pcbs_list[1] = create_pcb(2,30);
+    pcbs_list[2] = create_pcb(3,20);
+    filepaths[0] = "/home/hasan/os_project/Program_1.txt";
     filepaths[1] = "Program_2.txt";
     filepaths[2] = "Program_3.txt";
     programs = arr_index = 3;
@@ -93,17 +93,21 @@ int main(){
     
     print_memory(mem);
 
-    while(programs>0){
-        multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
-    }
+    // while(programs>0){
+    //     multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
+    // }
 
     // while(programs>0){
     //     round_robin(mem,&ready_queue);
     // }
 
-    // while(programs>0){
-    //     fifo_scheduler(mem, &ready_queue);
-    // }
+    for (size_t i = 0; i < 100; i++)
+    {
+        /* code */
+    
+    
+        fifo_scheduler(mem, &ready_queue);
+    }
 
     //fifo_scheduler(mem, &ready_queue);
 
