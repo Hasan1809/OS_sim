@@ -22,7 +22,9 @@ typedef struct {
     GtkWidget *reset_button;
     GtkWidget *step_button;
     GtkWidget *mutex_status_label;
-    GtkWidget *blocked_resource_label;
+    GtkWidget *blocked_input_label;
+    GtkWidget *blocked_output_label;
+    GtkWidget *blocked_file_label;
     GtkWidget *memory_view_label;
     GtkWidget *log_text_view;
     int clock_cycle;
@@ -46,5 +48,7 @@ void update_gui(AppWidgets *app);
 void update_memory_view(AppWidgets *app);
 void update_ready_queue_label(AppWidgets *app);
 void update_running_and_blocked_labels(AppWidgets *app);
+void update_mutex_status_label(AppWidgets *app);
+void update_blocked_labels(AppWidgets *app);
 
 #endif

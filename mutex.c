@@ -5,14 +5,14 @@
 
 void initMutex(Mutex* m) {
     m->pid=-1;
-    m->locked = 1;
+    m->locked = 0;
     init_queue(&(m->waitingQ));
 }
 
 void semWait(MemoryManager* mem,Mutex* m, PCB* pcb) {
-    if (m->locked == 1) {
+    if (m->locked == 0) {
         m->pid = pcb->pid;
-        m->locked = 0;
+        m->locked = 1;
     } else {
         // Block the process
         update_pcb_state_mem(mem,pcb,BLOCKED);
@@ -27,7 +27,7 @@ void semWait(MemoryManager* mem,Mutex* m, PCB* pcb) {
 void semSignal(MemoryManager* mem,Mutex *m,PCB* pcb) {
     if(m->pid == pcb->pid){
         if (is_empty(&m->waitingQ)) {
-            m->locked = 1;
+            m->locked = 0;
         } else {
         // Unblock highest-priority process in the queue
             PCB* pcb = peek(&(m->waitingQ)); // You could store PCB* instead

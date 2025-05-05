@@ -40,21 +40,41 @@ char** separatefunction(char* fileName, int* line_count) {
     char ch;
     char result[100] = "";
     char** lines = malloc(sizeof(char*) * 100);
-    int i = 0;
+    if (!lines) {
+        fclose(file);
+        perror("Memory allocation failed");
+        return NULL;
+    }
 
-    while ((ch = fgetc(file)) != EOF) {
+    int i = 0;
+    int pos = 0;
+    while ((ch = fgetc(file)) != EOF && i < 100) {
         if (ch == '\n') {
+            result[pos] = '\0';
             lines[i] = strdup(result);
+            if (!lines[i]) {
+                while (i-- > 0) free(lines[i]);
+                free(lines);
+                fclose(file);
+                return NULL;
+            }
             result[0] = '\0';
+            pos = 0;
             i++;
-        } else {
-            char temp[2] = {ch, '\0'};
-            strcat(result, temp);
+        } else if (pos < sizeof(result) - 1) {
+            result[pos++] = ch;
         }
     }
 
-    if (strlen(result) > 0) {
+    if (pos > 0 && i < 100) {
+        result[pos] = '\0';
         lines[i] = strdup(result);
+        if (!lines[i]) {
+            while (i-- > 0) free(lines[i]);
+            free(lines);
+            fclose(file);
+            return NULL;
+        }
         i++;
     }
 
@@ -127,6 +147,10 @@ char* get_gui_input(int pid) {
 // Initialize the GUI
 AppWidgets* init_gui() {
     AppWidgets *app = g_new(AppWidgets, 1);
+    if (!app) {
+        fprintf(stderr, "Failed to allocate AppWidgets\n");
+        return NULL;
+    }
     app->clock_cycle = 0;
     app->running = FALSE;
 
@@ -149,6 +173,11 @@ AppWidgets* init_gui() {
     gtk_box_pack_start(GTK_BOX(dashboard_box), app->overview_label, FALSE, FALSE, 5);
 
     app->process_store = gtk_list_store_new(6, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_INT, G_TYPE_STRING, G_TYPE_INT, G_TYPE_INT);
+    if (!app->process_store) {
+        fprintf(stderr, "Failed to create process_store\n");
+        g_free(app);
+        return NULL;
+    }
     GtkWidget *process_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(app->process_store));
     const char *columns[] = {"PID", "State", "Priority", "Memory", "PC", "Arrival Time"};
     for (int i = 0; i < 6; i++) {
@@ -234,9 +263,13 @@ AppWidgets* init_gui() {
     GtkWidget *resource_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_add(GTK_CONTAINER(resource_frame), resource_box);
     app->mutex_status_label = gtk_label_new("Mutex: userInput: Free, userOutput: Free, file: Free");
-    app->blocked_resource_label = gtk_label_new("Blocked for Resources: []");
+    app->blocked_input_label = gtk_label_new("Blocked on userInput: []");
+    app->blocked_output_label = gtk_label_new("Blocked on userOutput: []");
+    app->blocked_file_label = gtk_label_new("Blocked on file: []");
     gtk_box_pack_start(GTK_BOX(resource_box), app->mutex_status_label, FALSE, FALSE, 5);
-    gtk_box_pack_start(GTK_BOX(resource_box), app->blocked_resource_label, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(resource_box), app->blocked_input_label, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(resource_box), app->blocked_output_label, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(resource_box), app->blocked_file_label, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(right_box), resource_frame, FALSE, FALSE, 5);
 
     GtkWidget *memory_frame = gtk_frame_new("Memory Viewer");
@@ -259,8 +292,100 @@ AppWidgets* init_gui() {
     return app;
 }
 
+// Update Mutex Status label
+void update_mutex_status_label(AppWidgets *app) {
+    if (!app || !app->mutex_status_label) {
+        fprintf(stderr, "Invalid mutex_status_label in update_mutex_status_label\n");
+        return;
+    }
+
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "Mutex: userInput: %s, userOutput: %s, file: %s",
+             input.locked ? (input.pid > 0 ? g_strdup_printf("P%d", input.pid) : "Locked") : "Free",
+             output.locked ? (output.pid > 0 ? g_strdup_printf("P%d", output.pid) : "Locked") : "Free",
+             file.locked ? (file.pid > 0 ? g_strdup_printf("P%d", file.pid) : "Locked") : "Free");
+
+    gtk_label_set_text(GTK_LABEL(app->mutex_status_label), buffer);
+    gtk_widget_queue_draw(app->mutex_status_label);
+}
+
+// Update Blocked labels for each resource
+void update_blocked_labels(AppWidgets *app) {
+    if (!app || !app->blocked_input_label || !app->blocked_output_label || !app->blocked_file_label) {
+        fprintf(stderr, "Invalid blocked labels in update_blocked_labels\n");
+        return;
+    }
+
+    char input_buffer[256] = "Blocked on userInput: [";
+    char output_buffer[256] = "Blocked on userOutput: [";
+    char file_buffer[256] = "Blocked on file: [";
+    int input_pos = strlen(input_buffer);
+    int output_pos = strlen(output_buffer);
+    int file_pos = strlen(file_buffer);
+
+    // Update blocked on userInput
+    if (is_empty(&input.waitingQ)) {
+        input_pos += snprintf(input_buffer + input_pos, sizeof(input_buffer) - input_pos, "]");
+    } else {
+        int first = 1;
+        for (int i = input.waitingQ.front; i < input.waitingQ.rear && i < MAX_SIZE; i++) {
+            if (input.waitingQ.processes[i] == NULL) continue;
+            if (!first) {
+                input_pos += snprintf(input_buffer + input_pos, sizeof(input_buffer) - input_pos, ", ");
+            }
+            input_pos += snprintf(input_buffer + input_pos, sizeof(input_buffer) - input_pos, "P%d", input.waitingQ.processes[i]->pid);
+            first = 0;
+        }
+        input_pos += snprintf(input_buffer + input_pos, sizeof(input_buffer) - input_pos, "]");
+    }
+
+    // Update blocked on userOutput
+    if (is_empty(&output.waitingQ)) {
+        output_pos += snprintf(output_buffer + output_pos, sizeof(output_buffer) - output_pos, "]");
+    } else {
+        int first = 1;
+        for (int i = output.waitingQ.front; i < output.waitingQ.rear && i < MAX_SIZE; i++) {
+            if (output.waitingQ.processes[i] == NULL) continue;
+            if (!first) {
+                output_pos += snprintf(output_buffer + output_pos, sizeof(output_buffer) - output_pos, ", ");
+            }
+            output_pos += snprintf(output_buffer + output_pos, sizeof(output_buffer) - output_pos, "P%d", output.waitingQ.processes[i]->pid);
+            first = 0;
+        }
+        output_pos += snprintf(output_buffer + output_pos, sizeof(output_buffer) - output_pos, "]");
+    }
+
+    // Update blocked on file
+    if (is_empty(&file.waitingQ)) {
+        file_pos += snprintf(file_buffer + file_pos, sizeof(file_buffer) - file_pos, "]");
+    } else {
+        int first = 1;
+        for (int i = file.waitingQ.front; i < file.waitingQ.rear && i < MAX_SIZE; i++) {
+            if (file.waitingQ.processes[i] == NULL) continue;
+            if (!first) {
+                file_pos += snprintf(file_buffer + file_pos, sizeof(file_buffer) - file_pos, ", ");
+            }
+            file_pos += snprintf(file_buffer + file_pos, sizeof(file_buffer) - file_pos, "P%d", file.waitingQ.processes[i]->pid);
+            first = 0;
+        }
+        file_pos += snprintf(file_buffer + file_pos, sizeof(file_buffer) - file_pos, "]");
+    }
+
+    gtk_label_set_text(GTK_LABEL(app->blocked_input_label), input_buffer);
+    gtk_label_set_text(GTK_LABEL(app->blocked_output_label), output_buffer);
+    gtk_label_set_text(GTK_LABEL(app->blocked_file_label), file_buffer);
+    gtk_widget_queue_draw(app->blocked_input_label);
+    gtk_widget_queue_draw(app->blocked_output_label);
+    gtk_widget_queue_draw(app->blocked_file_label);
+}
+
 // Update Memory Viewer label
 void update_memory_view(AppWidgets *app) {
+    if (!app || !app->memory_view_label) {
+        fprintf(stderr, "Invalid memory_view_label in update_memory_view\n");
+        return;
+    }
+
     char buffer[4096] = "Memory:\n";
     int pos = strlen(buffer);
     int any_used = 0;
@@ -284,10 +409,16 @@ void update_memory_view(AppWidgets *app) {
     }
 
     gtk_label_set_text(GTK_LABEL(app->memory_view_label), buffer);
+    gtk_widget_queue_draw(app->memory_view_label);
 }
 
 // Update Ready Queue label
 void update_ready_queue_label(AppWidgets *app) {
+    if (!app || !app->ready_queue_label) {
+        fprintf(stderr, "Invalid ready_queue_label in update_ready_queue_label\n");
+        return;
+    }
+
     char buffer[256] = "Ready Queue: [";
     int pos = strlen(buffer);
 
@@ -312,6 +443,11 @@ void update_ready_queue_label(AppWidgets *app) {
 
 // Update Running and Blocked labels
 void update_running_and_blocked_labels(AppWidgets *app) {
+    if (!app || !app->running_process_label || !app->blocking_queue_label) {
+        fprintf(stderr, "Invalid labels in update_running_and_blocked_labels\n");
+        return;
+    }
+
     char running_buffer[64] = "Running: None";
     for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING) {
@@ -409,7 +545,7 @@ void on_add_process_clicked(GtkButton *button, AppWidgets *app) {
         gtk_widget_set_sensitive(app->add_process_button, FALSE);
     }
     char log[256];
-    snprintf(log, sizeof(log), "Added process with pid: %d, filepath: %s, arrival time: %d\n", 
+    snprintf(log, sizeof(log), "Added process with pid: %d, filepath: %s, arrival time: %d\n",
              pcbs_list[programs - 1]->pid, filepaths[programs - 1], arrival_time);
     gtk_text_buffer_insert_at_cursor(
         gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -429,7 +565,6 @@ void on_start_clicked(GtkButton *button, AppWidgets *app) {
 
 // Callback for Start Simulation
 void on_start_simulation_clicked(GtkButton *button, AppWidgets *app) {
-    printf("clicked sim\n");
     if (programs == 0) {
         gtk_text_buffer_insert_at_cursor(
             gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
@@ -439,16 +574,13 @@ void on_start_simulation_clicked(GtkButton *button, AppWidgets *app) {
 
     char *algo = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(app->algo_combo));
     if (strcmp(algo, "FCFS") == 0) {
-        printf("fcfs selected \n");
         schedule = FCFS;
     } else if (strcmp(algo, "Round Robin") == 0) {
-        printf("round robin selected with quanta: %d \n", quanta);
         schedule = RR;
         const char *quantum_str = gtk_entry_get_text(GTK_ENTRY(app->quantum_entry));
         quanta = atoi(quantum_str);
         init_quanta();
     } else if (strcmp(algo, "MLFQ") == 0) {
-        printf("mlfq selected \n");
         schedule = MLFQ;
     } else {
         gtk_text_buffer_insert_at_cursor(
@@ -505,7 +637,9 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
     gtk_label_set_text(GTK_LABEL(app->blocking_queue_label), "Blocking Queue: []");
     gtk_label_set_text(GTK_LABEL(app->running_process_label), "Running: None");
     gtk_label_set_text(GTK_LABEL(app->mutex_status_label), "Mutex: userInput: Free, userOutput: Free, file: Free");
-    gtk_label_set_text(GTK_LABEL(app->blocked_resource_label), "Blocked for Resources: []");
+    gtk_label_set_text(GTK_LABEL(app->blocked_input_label), "Blocked on userInput: []");
+    gtk_label_set_text(GTK_LABEL(app->blocked_output_label), "Blocked on userOutput: []");
+    gtk_label_set_text(GTK_LABEL(app->blocked_file_label), "Blocked on file: []");
     update_memory_view(app);
     GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view));
     gtk_text_buffer_set_text(buffer, "Simulation reset\n", -1);
@@ -523,7 +657,10 @@ void on_step_clicked(GtkButton *button, AppWidgets *app) {
 // Update simulation state
 gboolean update_simulation(gpointer data) {
     AppWidgets *app = (AppWidgets*)data;
-    if (!app->running) return FALSE;
+    if (!app || !app->running || !app->log_text_view || !app->process_store) {
+        fprintf(stderr, "Invalid app state in update_simulation\n");
+        return FALSE;
+    }
 
     app->clock_cycle++;
 
@@ -551,9 +688,10 @@ gboolean update_simulation(gpointer data) {
 
     // Log the instruction that was executed
     for (int i = 0; i < programs; i++) {
-        if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING &&pcbs_list[i]->mem_start!=-1) {
+        if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING && pcbs_list[i]->mem_start != -1) {
             int prev_pc = pcbs_list[i]->program_counter - 1;
-            if (prev_pc >= pcbs_list[i]->mem_start && prev_pc < pcbs_list[i]->mem_end) {
+            if (prev_pc >= pcbs_list[i]->mem_start && prev_pc < pcbs_list[i]->mem_end &&
+                prev_pc >= 0 && prev_pc < MEM_SIZE) {
                 char *instruction = mem[0].words[prev_pc].value;
                 if (instruction) {
                     char log[256];
@@ -568,30 +706,39 @@ gboolean update_simulation(gpointer data) {
         }
     }
 
-    //Update process table
-    gtk_list_store_clear(app->process_store);
-    for (int i = 0; i < programs; i++) {
-        if (pcbs_list[i]) {
-            char pid_str[16];
-            snprintf(pid_str, sizeof(pid_str), "P%d", pcbs_list[i]->pid);
-            char range_str[50];
-            snprintf(range_str, sizeof(range_str), "%d-%d", pcbs_list[i]->mem_start, pcbs_list[i]->mem_end);
-            GtkTreeIter iter;
-            gtk_list_store_append(app->process_store, &iter);
-            gtk_list_store_set(app->process_store, &iter,
-                               0, pid_str,
-                               1, state_to_string(pcbs_list[i]),
-                               2, pcbs_list[i]->priority,
-                               3, range_str,
-                               4, pcbs_list[i]->program_counter,
-                               5, pcbs_list[i]->priority,
-                               -1);
+    // Update process table
+    if (app->process_store) {
+        gtk_list_store_clear(app->process_store);
+        for (int i = 0; i < programs; i++) {
+            if (pcbs_list[i] && pcbs_list[i]->state >= READY && pcbs_list[i]->state <= TERMINATED) {
+                char pid_str[16];
+                snprintf(pid_str, sizeof(pid_str), "P%d", pcbs_list[i]->pid);
+                char range_str[50];
+                if (pcbs_list[i]->mem_start >= 0 && pcbs_list[i]->mem_end < MEM_SIZE &&
+                    pcbs_list[i]->mem_start <= pcbs_list[i]->mem_end) {
+                    snprintf(range_str, sizeof(range_str), "%d-%d", pcbs_list[i]->mem_start, pcbs_list[i]->mem_end);
+                } else {
+                    snprintf(range_str, sizeof(range_str), "N/A");
+                }
+                GtkTreeIter iter;
+                gtk_list_store_append(app->process_store, &iter);
+                gtk_list_store_set(app->process_store, &iter,
+                                   0, pid_str,
+                                   1, state_to_string(pcbs_list[i]),
+                                   2, pcbs_list[i]->priority,
+                                   3, range_str,
+                                   4, pcbs_list[i]->program_counter,
+                                   5, pcbs_list[i]->priority,
+                                   -1);
+            }
         }
     }
 
     update_memory_view(app);
     update_ready_queue_label(app);
     update_running_and_blocked_labels(app);
+    update_mutex_status_label(app);
+    update_blocked_labels(app);
     update_gui(app);
 
     // Log cycle end
@@ -642,13 +789,20 @@ gboolean update_simulation(gpointer data) {
 
 // Update GUI elements
 void update_gui(AppWidgets *app) {
+    if (!app || !app->overview_label || !app->algo_combo) {
+        fprintf(stderr, "Invalid app state in update_gui\n");
+        return;
+    }
+
     char overview[256];
+    char *algo_text = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(app->algo_combo));
     snprintf(overview, sizeof(overview), "Processes: %d | Clock: %d | Algorithm: %s",
              programs,
              app->clock_cycle,
-             gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(app->algo_combo)));
+             algo_text ? algo_text : "None");
     gtk_label_set_text(GTK_LABEL(app->overview_label), overview);
     gtk_widget_queue_draw(app->overview_label);
+    if (algo_text) g_free(algo_text);
 }
 
 // Main function
@@ -661,8 +815,13 @@ int main(int argc, char *argv[]) {
     initMutex(&file);
     initMutex(&input);
     initMutex(&output);
+    init_memory(mem); // Initialize memory
     gtk_init(&argc, &argv);
     app = init_gui();
+    if (!app) {
+        fprintf(stderr, "GUI initialization failed\n");
+        return 1;
+    }
     gtk_widget_show_all(app->window);
     gtk_main();
     g_free(app);
