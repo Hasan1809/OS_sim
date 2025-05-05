@@ -1,7 +1,9 @@
 // mutex.c
 #include "mutex.h"
 #include <stdio.h>
+#include "gui.h"
 
+extern AppWidgets *app; // Access global AppWidgets
 
 void initMutex(Mutex* m) {
     m->pid=-1;
@@ -16,6 +18,11 @@ void semWait(MemoryManager* mem,Mutex* m, PCB* pcb) {
     } else {
         // Block the process
         update_pcb_state_mem(mem,pcb,BLOCKED);
+        char log[256];
+        snprintf(log, sizeof(log), "Process %d is blocked.\n", pcb->pid);
+        gtk_text_buffer_insert_at_cursor(
+            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+            log, -1);
 
         printf("process: %d is blocked \n", pcb->pid);
         
@@ -34,6 +41,11 @@ void semSignal(MemoryManager* mem,Mutex *m,PCB* pcb) {
             dequeue(&(m->waitingQ));
             m->pid = pcb->pid;
             update_pcb_state_mem(mem,pcb,READY);
+            char log[256];
+            snprintf(log, sizeof(log), "Process %d has been unblocked.\n", pcb->pid);
+            gtk_text_buffer_insert_at_cursor(
+            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+            log, -1);
 
         // Push into the appropriate ready queue
         if (schedule != MLFQ){
