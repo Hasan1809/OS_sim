@@ -447,8 +447,8 @@ void update_ready_queue_label(AppWidgets *app) {
 
     char buffer[256] = "Ready Queue: [";
     int pos = strlen(buffer);
-
-    if (is_empty(&ready_queue)) {
+    if (schedule != MLFQ)
+    {if (is_empty(&ready_queue)) {
         pos += snprintf(buffer + pos, sizeof(buffer) - pos, "]");
     } else {
         int first = 1;
@@ -465,6 +465,60 @@ void update_ready_queue_label(AppWidgets *app) {
         }
         pos += snprintf(buffer + pos, sizeof(buffer) - pos, "]");
     }
+    }else{
+    if (is_empty(&lvl1) && is_empty(&lvl2) && is_empty(&lvl3) && is_empty(&lvl4)) {
+        pos += snprintf(buffer + pos, sizeof(buffer) - pos, "]");
+    } else {
+        int first = 1;
+        for (int i = lvl1.front; i < lvl1.rear && i < MAX_SIZE; i++) {
+            if (lvl1.processes[i] == NULL || lvl1.processes[i]->state != READY) continue;
+            if (!first) {
+                pos += snprintf(buffer + pos, sizeof(buffer) - pos, ", ");
+            }
+            lvl1.processes[i]->time_ready = lvl1.processes[i]->time_ready + 1;
+            lvl1.processes[i]->time_running = 0;
+            lvl1.processes[i]->time_blocked = 0;
+            pos += snprintf(buffer + pos, sizeof(buffer) - pos, "P%d for %d cycles", lvl1.processes[i]->pid, lvl1.processes[i]->time_ready);
+            first = 0;
+        }
+        
+        for (int i = lvl2.front; i < lvl2.rear && i < MAX_SIZE; i++) {
+            if (lvl2.processes[i] == NULL || lvl2.processes[i]->state != READY) continue;
+            if (!first) {
+                pos += snprintf(buffer + pos, sizeof(buffer) - pos, ", ");
+            }
+            lvl2.processes[i]->time_ready = lvl2.processes[i]->time_ready + 1;
+            lvl2.processes[i]->time_running = 0;
+            lvl2.processes[i]->time_blocked = 0;
+            pos += snprintf(buffer + pos, sizeof(buffer) - pos, "P%d for %d cycles", lvl2.processes[i]->pid, lvl2.processes[i]->time_ready);
+            first = 0;
+        }
+        
+        for (int i = lvl3.front; i < lvl3.rear && i < MAX_SIZE; i++) {
+            if (lvl3.processes[i] == NULL || lvl3.processes[i]->state != READY) continue;
+            if (!first) {
+                pos += snprintf(buffer + pos, sizeof(buffer) - pos, ", ");
+            }
+            lvl3.processes[i]->time_ready = lvl3.processes[i]->time_ready + 1;
+            lvl3.processes[i]->time_running = 0;
+            lvl3.processes[i]->time_blocked = 0;
+            pos += snprintf(buffer + pos, sizeof(buffer) - pos, "P%d for %d cycles", lvl3.processes[i]->pid, lvl3.processes[i]->time_ready);
+            first = 0;
+        }
+        
+        for (int i = lvl4.front; i < lvl4.rear && i < MAX_SIZE; i++) {
+            if (lvl4.processes[i] == NULL || lvl4.processes[i]->state != READY) continue;
+            if (!first) {
+                pos += snprintf(buffer + pos, sizeof(buffer) - pos, ", ");
+            }
+            lvl4.processes[i]->time_ready = lvl4.processes[i]->time_ready + 1;
+            lvl4.processes[i]->time_running = 0;
+            lvl4.processes[i]->time_blocked = 0;
+            pos += snprintf(buffer + pos, sizeof(buffer) - pos, "P%d for %d cycles", lvl4.processes[i]->pid, lvl4.processes[i]->time_ready);
+            first = 0;
+        }
+        pos += snprintf(buffer + pos, sizeof(buffer) - pos, "]");
+    }}
 
     gtk_label_set_text(GTK_LABEL(app->ready_queue_label), buffer);
     gtk_widget_queue_draw(app->ready_queue_label);
