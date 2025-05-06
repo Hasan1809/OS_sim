@@ -9,6 +9,7 @@ PCB* create_pcb(int pid, int priority) {
     pcb->priority = priority;
     pcb->program_counter = 0;
     pcb->mem_start = pcb->mem_end = -1;
+    pcb->time_ready = pcb->time_running = pcb->time_blocked = 0;
     return pcb;
 }
 

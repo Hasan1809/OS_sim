@@ -195,9 +195,11 @@ AppWidgets* init_gui() {
     app->ready_queue_label = gtk_label_new("Ready Queue: []");
     app->blocking_queue_label = gtk_label_new("Blocking Queue: []");
     app->running_process_label = gtk_label_new("Running: None");
+    app->current_instruction_label = gtk_label_new("Current Instruction: None");
     gtk_box_pack_start(GTK_BOX(queue_box), app->ready_queue_label, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(queue_box), app->blocking_queue_label, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(queue_box), app->running_process_label, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(queue_box), app->current_instruction_label, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(dashboard_box), queue_frame, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(left_box), dashboard_frame, TRUE, TRUE, 5);
 
@@ -229,7 +231,6 @@ AppWidgets* init_gui() {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(app->algo_combo), "FCFS");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(app->algo_combo), "Round Robin");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(app->algo_combo), "MLFQ");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(app->algo_combo), 0);
     gtk_box_pack_start(GTK_BOX(algo_box), algo_label, FALSE, FALSE, 5);
     gtk_box_pack_start(GTK_BOX(algo_box), app->algo_combo, TRUE, TRUE, 5);
     gtk_box_pack_start(GTK_BOX(control_box), algo_box, FALSE, FALSE, 5);
@@ -379,6 +380,31 @@ void update_blocked_labels(AppWidgets *app) {
     gtk_widget_queue_draw(app->blocked_file_label);
 }
 
+// Update Current Instruction label
+void update_current_instruction_label(AppWidgets *app) {
+    if (!app || !app->current_instruction_label) {
+        fprintf(stderr, "Invalid current_instruction_label in update_current_instruction_label\n");
+        return;
+    }
+
+    char buffer[256] = "Current Instruction: None";
+    for (int i = 0; i < programs; i++) {
+        if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING && pcbs_list[i]->mem_start != -1) {
+            int pc = pcbs_list[i]->program_counter - 1;
+            if (pc >= pcbs_list[i]->mem_start && pc < pcbs_list[i]->mem_end && pc >= 0 && pc < MEM_SIZE) {
+                char *instruction = mem[0].words[pc].value;
+                if (instruction && strlen(instruction) > 0) {
+                    snprintf(buffer, sizeof(buffer), "Current Instruction: %s", instruction);
+                }
+            }
+            break;
+        }
+    }
+
+    gtk_label_set_text(GTK_LABEL(app->current_instruction_label), buffer);
+    gtk_widget_queue_draw(app->current_instruction_label);
+}
+
 // Update Memory Viewer label
 void update_memory_view(AppWidgets *app) {
     if (!app || !app->memory_view_label) {
@@ -431,7 +457,10 @@ void update_ready_queue_label(AppWidgets *app) {
             if (!first) {
                 pos += snprintf(buffer + pos, sizeof(buffer) - pos, ", ");
             }
-            pos += snprintf(buffer + pos, sizeof(buffer) - pos, "P%d", ready_queue.processes[i]->pid);
+            ready_queue.processes[i]->time_ready = ready_queue.processes[i]->time_ready + 1;
+            ready_queue.processes[i]->time_running = 0;
+            ready_queue.processes[i]->time_blocked = 0;
+            pos += snprintf(buffer + pos, sizeof(buffer) - pos, "P%d for %d cycles", ready_queue.processes[i]->pid, ready_queue.processes[i]->time_ready);
             first = 0;
         }
         pos += snprintf(buffer + pos, sizeof(buffer) - pos, "]");
@@ -451,7 +480,10 @@ void update_running_and_blocked_labels(AppWidgets *app) {
     char running_buffer[64] = "Running: None";
     for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING) {
-            snprintf(running_buffer, sizeof(running_buffer), "Running: P%d", pcbs_list[i]->pid);
+            pcbs_list[i]->time_running = pcbs_list[i]->time_running + 1;
+            pcbs_list[i]->time_ready = 0;
+            pcbs_list[i]->time_blocked = 0;
+            snprintf(running_buffer, sizeof(running_buffer), "Running: P%d for %d cycles", pcbs_list[i]->pid, pcbs_list[i]->time_running);
             break;
         }
     }
@@ -464,10 +496,13 @@ void update_running_and_blocked_labels(AppWidgets *app) {
 
     for (int i = 0; i < programs; i++) {
         if (pcbs_list[i] != NULL && pcbs_list[i]->state == BLOCKED) {
+            pcbs_list[i]->time_blocked = pcbs_list[i]->time_blocked + 1;
+            pcbs_list[i]->time_ready = 0;
+            pcbs_list[i]->time_running = 0;
             if (!first) {
                 pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, ", ");
             }
-            pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, "P%d", pcbs_list[i]->pid);
+            pos += snprintf(blocked_buffer + pos, sizeof(blocked_buffer) - pos, "P%d for %d cycles", pcbs_list[i]->pid, pcbs_list[i]->time_blocked);
             first = 0;
         }
     }
@@ -631,11 +666,15 @@ void on_reset_clicked(GtkButton *button, AppWidgets *app) {
     init_queue(&lvl2);
     init_queue(&lvl3);
     init_queue(&lvl4);
+    initMutex(&file);
+    initMutex(&input);
+    initMutex(&output);
     gtk_list_store_clear(app->process_store);
     gtk_label_set_text(GTK_LABEL(app->overview_label), "Processes: 0 | Clock: 0 | Algorithm: None");
     gtk_label_set_text(GTK_LABEL(app->ready_queue_label), "Ready Queue: []");
     gtk_label_set_text(GTK_LABEL(app->blocking_queue_label), "Blocking Queue: []");
     gtk_label_set_text(GTK_LABEL(app->running_process_label), "Running: None");
+    gtk_label_set_text(GTK_LABEL(app->current_instruction_label), "Current Instruction: None");
     gtk_label_set_text(GTK_LABEL(app->mutex_status_label), "Mutex: userInput: Free, userOutput: Free, file: Free");
     gtk_label_set_text(GTK_LABEL(app->blocked_input_label), "Blocked on userInput: []");
     gtk_label_set_text(GTK_LABEL(app->blocked_output_label), "Blocked on userOutput: []");
@@ -710,7 +749,7 @@ gboolean update_simulation(gpointer data) {
     if (app->process_store) {
         gtk_list_store_clear(app->process_store);
         for (int i = 0; i < programs; i++) {
-            if (pcbs_list[i] && pcbs_list[i]->state >= READY && pcbs_list[i]->state <= TERMINATED) {
+            if (pcbs_list[i] && pcbs_list[i]->state >= READY && pcbs_list[i]->state <= NOT_IN_SYSTEM) {
                 char pid_str[16];
                 snprintf(pid_str, sizeof(pid_str), "P%d", pcbs_list[i]->pid);
                 char range_str[50];
@@ -739,6 +778,7 @@ gboolean update_simulation(gpointer data) {
     update_running_and_blocked_labels(app);
     update_mutex_status_label(app);
     update_blocked_labels(app);
+    update_current_instruction_label(app);
     update_gui(app);
 
     // Log cycle end

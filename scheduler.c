@@ -6,7 +6,9 @@
 #include "interpreter.h"
 #include "queue.h"
 #include "string.h"
+#include "gui.h"
 
+extern AppWidgets *app; // Access global AppWidgets
 
 
 
@@ -100,6 +102,7 @@ void fifo_scheduler(MemoryManager* memory, Queue* ready_queue) {
         if(current_process->program_counter >= current_process->mem_end - 8){
             printf("Process ID %d completed.\n", current_process->pid);
             update_pcb_state_mem(memory,current_process,TERMINATED);
+            free_process(memory,current_process);
             dequeue(ready_queue);
         }
     } 
@@ -157,6 +160,7 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
         if(current_process->program_counter >= current_process->mem_end - 8){
             current_quanta = quanta;
             update_pcb_state_mem(mem,current_process,TERMINATED);
+            free_process(mem,current_process);
             printf("Process ID %d completed.\n", current_process->pid);
             dequeue(ready_queue);
         }
@@ -299,6 +303,7 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
         dequeue(current_level);
         cur_quantum[quantum_index] = quantum[quantum_index];
         update_pcb_state_mem(mem, current_process, TERMINATED);
+        free_process(mem, current_process);
         printf("Process ID %d completed.\n", current_process->pid);
         new_arrival = false;
         current_queue = NULL;

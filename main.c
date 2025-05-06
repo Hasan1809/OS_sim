@@ -105,8 +105,8 @@ int main(){
     {
         /* code */
     
-    
-        fifo_scheduler(mem, &ready_queue);
+        multilevel_feedback_queue(mem, &lvl1, &lvl2,&lvl3,&lvl4);
+        // fifo_scheduler(mem, &ready_queue);
     }
 
     //fifo_scheduler(mem, &ready_queue);

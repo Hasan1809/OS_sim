@@ -21,5 +21,6 @@ PCB* dequeue(Queue* q);
 PCB* peek(Queue* q);
 int is_empty(Queue* q);
 void print_queue(Queue* q);
+void clear_queue(Queue* q);
 
 #endif // QUEUE_H

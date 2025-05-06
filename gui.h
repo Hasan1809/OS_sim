@@ -12,6 +12,7 @@ typedef struct {
     GtkWidget *ready_queue_label;
     GtkWidget *blocking_queue_label;
     GtkWidget *running_process_label;
+    GtkWidget *current_instruction_label;
     GtkWidget *add_process_button;
     GtkWidget *arrival_entry;
     GtkWidget *algo_combo;
@@ -50,5 +51,6 @@ void update_ready_queue_label(AppWidgets *app);
 void update_running_and_blocked_labels(AppWidgets *app);
 void update_mutex_status_label(AppWidgets *app);
 void update_blocked_labels(AppWidgets *app);
+void update_current_instruction_label(AppWidgets *app);
 
 #endif

@@ -96,11 +96,6 @@ void execute_instruction(MemoryManager* mem, PCB* pcb) {
             fprintf(stderr, "Error writing to file %s\n", filename);
         }
     } else if (strcmp(cmd, "semWait") == 0) {
-        char log[256];
-        snprintf(log, sizeof(log), "Process %d: Acquiring %s\n", pcb->pid, arg1);
-        gtk_text_buffer_insert_at_cursor(
-            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-            log, -1);
         if (strcmp(arg1, "userInput") == 0) {
             semWait(mem, &input, pcb);
         } else if (strcmp(arg1, "file") == 0) {

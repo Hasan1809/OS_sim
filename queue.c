@@ -45,3 +45,13 @@ void print_queue(Queue* q) {
                process->pid, process->state, process->priority, process->program_counter);
     }
 }
+
+void clear_queue(Queue* q) {
+    for (int i = 0; i < q->rear; i++) {
+        // If you dynamically allocated PCBs and want to free them:
+        // free(q->processes[i]);
+        q->processes[i] = NULL;
+    }
+    q->front = 0;
+    q->rear = 0;
+}

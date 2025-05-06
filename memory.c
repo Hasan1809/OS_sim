@@ -1,6 +1,7 @@
 #include "memory.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 void init_memory(MemoryManager* mem) {
     for (int i = 0; i < MEM_SIZE; i++) {
@@ -106,10 +107,24 @@ void update_pcb_state_mem(MemoryManager* mem, PCB* pcb, ProcessState new_state){
     mem->words[pcb->mem_end - 4].value = (char*) ColorStrings[pcb->state];
 }
 
-void free_process(MemoryManager *mem, PCB *pcb)
-{
-    init_memory(mem);
+void free_process(MemoryManager* mem, PCB* pcb) {
+    for (int i = pcb->mem_start; i <= pcb->mem_end; i++) {
+        // Free dynamically allocated value strings
+        if (mem->words[i].value != NULL) {
+            // free(mem->words[i].value);
+            mem->words[i].value = NULL;
+        }
+
+        // Clear key and usage flag
+        mem->words[i].key = NULL;
+        mem->used[i] = 0;
+    }
+
+    // Optionally reset PCB memory bounds
+    pcb->mem_start = -1;
+    pcb->mem_end = -1;
 }
+
 
 
 void print_memory(MemoryManager* mem) {

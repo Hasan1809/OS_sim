@@ -19,6 +19,9 @@ typedef struct {
     int program_counter;    // Next instruction index
     int mem_start;          // Memory start address
     int mem_end;            // Memory end address
+    int time_ready;
+    int time_running;
+    int time_blocked;
 } PCB;
 
 PCB* create_pcb(int pid, int priority);
