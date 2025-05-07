@@ -780,63 +780,63 @@ gboolean update_simulation(gpointer data) {
     }
 
     // Log the instruction that was executed
-    for (int i = 0; i < programs; i++) {
-        if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING && pcbs_list[i]->mem_start != -1) {
-            int prev_pc = pcbs_list[i]->program_counter - 1;
-            if (prev_pc >= pcbs_list[i]->mem_start && prev_pc < pcbs_list[i]->mem_end &&
-                prev_pc >= 0 && prev_pc < MEM_SIZE) {
-                char *instruction = mem[0].words[prev_pc].value;
-                if (instruction) {
-                    char log[256];
-                    snprintf(log, sizeof(log), "P%d executed instruction: %s\n",
-                             pcbs_list[i]->pid, instruction);
-                    gtk_text_buffer_insert_at_cursor(
-                        gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
-                        log, -1);
-                }
-            }
-            break;
-        }
-    }
-
-    // Update process table
-    if (app->process_store) {
-        gtk_list_store_clear(app->process_store);
+    
+    if(schedule != MLFQ){
         for (int i = 0; i < programs; i++) {
-            if (pcbs_list[i] && pcbs_list[i]->state >= READY && pcbs_list[i]->state <= NOT_IN_SYSTEM) {
-                char pid_str[16];
-                snprintf(pid_str, sizeof(pid_str), "P%d", pcbs_list[i]->pid);
-                char range_str[50];
-                if (pcbs_list[i]->mem_start >= 0 && pcbs_list[i]->mem_end < MEM_SIZE &&
-                    pcbs_list[i]->mem_start <= pcbs_list[i]->mem_end) {
-                    snprintf(range_str, sizeof(range_str), "%d-%d", pcbs_list[i]->mem_start, pcbs_list[i]->mem_end);
-                } else {
-                    snprintf(range_str, sizeof(range_str), "N/A");
+            if (pcbs_list[i] != NULL && pcbs_list[i]->state == RUNNING && pcbs_list[i]->mem_start != -1) {
+                int prev_pc = pcbs_list[i]->program_counter - 1;
+                if (prev_pc >= pcbs_list[i]->mem_start && prev_pc < pcbs_list[i]->mem_end &&
+                    prev_pc >= 0 && prev_pc < MEM_SIZE) {
+                    char *instruction = mem[0].words[prev_pc].value;
+                    if (instruction) {
+                        char log[256];
+                        snprintf(log, sizeof(log), "P%d executed instruction: %s\n",
+                                 pcbs_list[i]->pid, instruction);
+                        gtk_text_buffer_insert_at_cursor(
+                            gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
+                            log, -1);
+                    }
                 }
-                GtkTreeIter iter;
-                gtk_list_store_append(app->process_store, &iter);
-                gtk_list_store_set(app->process_store, &iter,
-                                   0, pid_str,
-                                   1, state_to_string(pcbs_list[i]),
-                                   2, pcbs_list[i]->priority,
-                                   3, range_str,
-                                   4, pcbs_list[i]->program_counter,
-                                   5, pcbs_list[i]->priority,
-                                   -1);
+                break;
             }
         }
-    }
-
-    update_memory_view(app);
-    update_ready_queue_label(app);
-    update_running_and_blocked_labels(app);
-    update_mutex_status_label(app);
-    update_blocked_labels(app);
-    update_current_instruction_label(app);
-    update_gui(app);
-
-    // Log cycle end
-    snprintf(cycle_log, sizeof(cycle_log), "Cycle %d: Running: ", app->clock_cycle);
+    
+        // Update process table
+        if (app->process_store) {
+            gtk_list_store_clear(app->process_store);
+            for (int i = 0; i < programs; i++) {
+                if (pcbs_list[i] && pcbs_list[i]->state >= READY && pcbs_list[i]->state <= NOT_IN_SYSTEM) {
+                    char pid_str[16];
+                    snprintf(pid_str, sizeof(pid_str), "P%d", pcbs_list[i]->pid);
+                    char range_str[50];
+                    if (pcbs_list[i]->mem_start >= 0 && pcbs_list[i]->mem_end < MEM_SIZE &&
+                        pcbs_list[i]->mem_start <= pcbs_list[i]->mem_end) {
+                        snprintf(range_str, sizeof(range_str), "%d-%d", pcbs_list[i]->mem_start, pcbs_list[i]->mem_end);
+                    } else {
+                        snprintf(range_str, sizeof(range_str), "N/A");
+                    }
+                    GtkTreeIter iter;
+                    gtk_list_store_append(app->process_store, &iter);
+                    gtk_list_store_set(app->process_store, &iter,
+                                       0, pid_str,
+                                       1, state_to_string(pcbs_list[i]),
+                                       2, pcbs_list[i]->priority,
+                                       3, range_str,
+                                       4, pcbs_list[i]->program_counter,
+                                       5, pcbs_list[i]->priority,
+                                       -1);
+                }
+            }
+        }
+    
+        update_memory_view(app);
+        update_ready_queue_label(app);
+        update_running_and_blocked_labels(app);
+        update_mutex_status_label(app);
+        update_blocked_labels(app);
+        update_current_instruction_label(app);
+        update_gui(app);
+        snprintf(cycle_log, sizeof(cycle_log), "Cycle %d: Running: ", app->clock_cycle);
     int pos = strlen(cycle_log);
     int running_found = 0;
     for (int i = 0; i < programs; i++) {
@@ -877,6 +877,13 @@ gboolean update_simulation(gpointer data) {
     gtk_text_buffer_insert_at_cursor(
         gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->log_text_view)),
         cycle_log, -1);
+    }
+    
+    
+    
+
+    // Log cycle end
+    
 
     return TRUE;
 }
