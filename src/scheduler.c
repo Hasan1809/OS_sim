@@ -136,7 +136,7 @@ void round_robin(MemoryManager* mem , Queue* ready_queue){
         }
         
     }
-
+    
     PCB* current_process = peek(ready_queue);
     
 
@@ -186,6 +186,7 @@ void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2,
             enqueue(level1, pcbs_list[i]);
             printf("Process ID %d has arrived.\n", pcbs_list[i]->pid);
             new_arrival = true;
+            print_memory(mem);
         }
     }
 
@@ -254,6 +255,7 @@ void multilevel_feedback_queue(MemoryManager* mem, Queue* level1, Queue* level2,
 }
 
 void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, int quantum_index) {
+    printf("os_clock: %d\n", os_clock);
     PCB* current_process = peek(current_level);
 
     while(current_process->state == BLOCKED){
@@ -269,13 +271,7 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
     
     execute_instruction(mem, current_process);
     update(mem);
-    // if(current_process->state==BLOCKED){
-    //     PCB* temp = dequeue(current_level);
-    //     enqueue(current_level,temp);
-    //     current_queue = NULL;
-    //     cur_quantum[quantum_index] = quantum[quantum_index];
-    //     return;
-    // }
+    
     cur_quantum[quantum_index]--;
     
     // Check if the process has completed execution
@@ -311,7 +307,6 @@ void execute_level(MemoryManager* mem, Queue* current_level, Queue* next_level, 
         new_arrival = false;
         current_queue = NULL;
     }
-    printf("%d \n", cur_quantum[quantum_index]);
 }
 
 int all_blocked(Queue* q){
